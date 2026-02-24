@@ -98,7 +98,7 @@ export default function TestPage() {
                         <img
                             src={`${import.meta.env.BASE_URL}PIT_logo_blue.png`}
                             alt="PIT"
-                            className="w-10 h-10 rounded-lg bg-white p-1 object-contain"
+                            className="w-11 h-11 rounded-lg bg-white p-1.5 object-contain shadow-md ring-1 ring-white/30"
                         />
                         <div>
                             <h1 className="text-xl font-bold text-white font-heading tracking-tight">Assessment Test</h1>
