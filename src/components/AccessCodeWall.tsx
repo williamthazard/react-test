@@ -122,13 +122,12 @@ export default function AccessCodeWall({ onUnlock }: AccessCodeWallProps) {
             >
                 {/* PIT Logo */}
                 <div className="flex justify-center mb-6">
-                    <div className="w-24 h-24 rounded-2xl bg-white p-3 flex items-center justify-center shadow-xl shadow-white/20 ring-1 ring-white/20">
-                        <img
-                            src={`${import.meta.env.BASE_URL}PIT_logo_blue.png`}
-                            alt="Pennsylvania Institute of Technology"
-                            className="w-full h-full object-contain"
-                        />
-                    </div>
+                    <img
+                        src={`${import.meta.env.BASE_URL}PIT_logo_blue.png`}
+                        alt="Pennsylvania Institute of Technology"
+                        className="w-28 h-28 object-contain drop-shadow-lg"
+                        style={{ filter: 'brightness(0) invert(1)' }}
+                    />
                 </div>
 
                 <h1 className="text-2xl font-bold text-center text-white font-heading tracking-tight">

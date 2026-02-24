@@ -98,7 +98,8 @@ export default function TestPage() {
                         <img
                             src={`${import.meta.env.BASE_URL}PIT_logo_blue.png`}
                             alt="PIT"
-                            className="w-11 h-11 rounded-lg bg-white p-1.5 object-contain shadow-md ring-1 ring-white/30"
+                            className="w-10 h-10 object-contain drop-shadow-md"
+                            style={{ filter: 'brightness(0) invert(1)' }}
                         />
                         <div>
                             <h1 className="text-xl font-bold text-white font-heading tracking-tight">Assessment Test</h1>
