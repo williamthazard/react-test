@@ -120,22 +120,14 @@ export default function AccessCodeWall({ onUnlock }: AccessCodeWallProps) {
                 className={`relative z-10 w-full max-w-md p-8 rounded-2xl border border-white/15 bg-white/10 backdrop-blur-xl shadow-2xl transition-transform ${shake ? 'animate-shake' : ''
                     }`}
             >
-                {/* Icon */}
+                {/* PIT Logo */}
                 <div className="flex justify-center mb-6">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#3161AC] to-[#254d8a] flex items-center justify-center shadow-lg shadow-[#3161AC]/30">
-                        <svg
-                            className="w-8 h-8 text-white"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                            />
-                        </svg>
+                    <div className="w-20 h-20 rounded-2xl bg-white p-2 flex items-center justify-center shadow-lg shadow-[#3161AC]/30">
+                        <img
+                            src={`${import.meta.env.BASE_URL}PIT_logo_blue.png`}
+                            alt="Pennsylvania Institute of Technology"
+                            className="w-full h-full object-contain"
+                        />
                     </div>
                 </div>
 

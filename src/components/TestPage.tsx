@@ -93,10 +93,17 @@ export default function TestPage() {
 
             {/* Sticky header */}
             <header className="sticky top-0 z-50 border-b border-white/20 bg-pit-blue/90 backdrop-blur-md shadow-md">
-                <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-                    <div>
-                        <h1 className="text-xl font-bold text-white font-heading tracking-tight">Assessment Test</h1>
-                        <p className="text-xs text-blue-200 mt-0.5">{questions.length} questions</p>
+                <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <img
+                            src={`${import.meta.env.BASE_URL}PIT_logo_blue.png`}
+                            alt="PIT"
+                            className="w-10 h-10 rounded-lg bg-white p-1 object-contain"
+                        />
+                        <div>
+                            <h1 className="text-xl font-bold text-white font-heading tracking-tight">Assessment Test</h1>
+                            <p className="text-xs text-blue-200 mt-0.5">{questions.length} questions</p>
+                        </div>
                     </div>
                     <div className="flex items-center gap-4">
                         <div className="text-right">
