@@ -1,11 +1,6 @@
 import { questions } from '../data/questionsData';
-
-// ─────────────────────────────────────────────
-// Appwrite Configuration
-// ─────────────────────────────────────────────
-const APPWRITE_ENDPOINT = 'https://nyc.cloud.appwrite.io/v1';
-const APPWRITE_PROJECT_ID = '699de9370020d5f42bdf';
-const FUNCTION_ID = '699debf48829a77a155d';
+import { ExecutionMethod } from 'appwrite';
+import { functions, SEND_RESULTS_FUNCTION_ID } from './appwrite';
 
 type Answers = Record<number, string>;
 
@@ -63,35 +58,21 @@ export async function sendResults(answers: Answers, studentName: string): Promis
 
     while (retryCount < maxRetries && !success) {
         try {
-            const response = await fetch(
-                `${APPWRITE_ENDPOINT}/functions/${FUNCTION_ID}/executions`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Appwrite-Project': APPWRITE_PROJECT_ID,
-                    },
-                    body: JSON.stringify({
-                        body: JSON.stringify({
-                            subject: `Assessment Test Results – ${studentName}`,
-                            message: formattedResults,
-                        }),
-                    }),
-                }
+            const result = await functions.createExecution(
+                SEND_RESULTS_FUNCTION_ID,
+                JSON.stringify({
+                    subject: `Assessment Test Results – ${studentName}`,
+                    message: formattedResults,
+                }),
+                false, // synchronous
+                undefined,
+                ExecutionMethod.POST,
             );
 
-            if (!response.ok) {
-                throw new Error(`Function execution failed: ${response.status}`);
-            }
-
-            const result = await response.json();
-
-            // If it timed out internally on Appwrite (e.g., status 500 or 408)
             if (result.status === 'failed') {
                 throw new Error('Appwrite execution failed (cold start timeout)');
             }
 
-            // Check if the function returned an error
             if (result.responseBody) {
                 try {
                     const parsed = JSON.parse(result.responseBody);
@@ -101,7 +82,6 @@ export async function sendResults(answers: Answers, studentName: string): Promis
                     success = true;
                 } catch (e) {
                     if (e instanceof SyntaxError) {
-                        // responseBody wasn't JSON, that's ok
                         success = true;
                     } else {
                         throw e;
@@ -115,7 +95,6 @@ export async function sendResults(answers: Answers, studentName: string): Promis
             if (retryCount >= maxRetries) {
                 throw err;
             }
-            // Wait 1 second before retrying
             await new Promise(r => setTimeout(r, 1000));
         }
     }

@@ -1,8 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react';
-
-const APPWRITE_ENDPOINT = 'https://nyc.cloud.appwrite.io/v1';
-const APPWRITE_PROJECT_ID = '699de9370020d5f42bdf';
-const VERIFY_FUNCTION_ID = '699df29119e0c5e74963';
+import { ExecutionMethod } from 'appwrite';
+import { functions, VERIFY_FUNCTION_ID } from '../services/appwrite';
 
 interface AccessCodeWallProps {
     onUnlock: () => void;
@@ -16,17 +14,13 @@ export default function AccessCodeWall({ onUnlock }: AccessCodeWallProps) {
 
     // Warm up the Appwrite function container in the background
     useEffect(() => {
-        fetch(`${APPWRITE_ENDPOINT}/functions/${VERIFY_FUNCTION_ID}/executions`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Appwrite-Project': APPWRITE_PROJECT_ID,
-            },
-            body: JSON.stringify({
-                async: true, // Async execution immediately returns 202 while booting container
-                body: JSON.stringify({ code: 'WARM_UP' }),
-            }),
-        }).catch(() => { });
+        functions.createExecution(
+            VERIFY_FUNCTION_ID,
+            JSON.stringify({ code: 'WARM_UP' }),
+            true, // async
+            undefined,
+            ExecutionMethod.POST,
+        ).catch(() => { });
     }, []);
 
     const handleSubmit = async (e: FormEvent) => {
@@ -43,39 +37,22 @@ export default function AccessCodeWall({ onUnlock }: AccessCodeWallProps) {
 
         while (retryCount < maxRetries && !success) {
             try {
-                const response = await fetch(
-                    `${APPWRITE_ENDPOINT}/functions/${VERIFY_FUNCTION_ID}/executions`,
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-Appwrite-Project': APPWRITE_PROJECT_ID,
-                        },
-                        body: JSON.stringify({
-                            body: JSON.stringify({ code: code.trim() }),
-                        }),
-                    }
+                const result = await functions.createExecution(
+                    VERIFY_FUNCTION_ID,
+                    JSON.stringify({ code: code.trim() }),
+                    false, // synchronous
+                    undefined,
+                    ExecutionMethod.POST,
                 );
 
-                if (!response.ok) {
-                    throw new Error(`Verification request failed with status ${response.status}`);
-                }
-
-                const result = await response.json();
-
-                // If it timed out internally on Appwrite (e.g., status 500 or 408)
                 if (result.status === 'failed') {
                     throw new Error('Appwrite execution failed (cold start timeout)');
                 }
 
                 if (result.responseBody) {
-                    try {
-                        const parsed = JSON.parse(result.responseBody);
-                        valid = parsed.valid === true;
-                        success = true; // Succeeded parsing response
-                    } catch {
-                        throw new Error('Invalid response body format');
-                    }
+                    const parsed = JSON.parse(result.responseBody);
+                    valid = parsed.valid === true;
+                    success = true;
                 } else {
                     throw new Error('Empty response body');
                 }
@@ -88,7 +65,6 @@ export default function AccessCodeWall({ onUnlock }: AccessCodeWallProps) {
                     setChecking(false);
                     return;
                 }
-                // Wait 1 second before retrying
                 await new Promise(r => setTimeout(r, 1000));
             }
         }
