@@ -1,5 +1,4 @@
-import { ExecutionMethod } from 'appwrite';
-import { functions, MANAGE_QUESTIONS_FUNCTION_ID } from '../services/appwrite';
+
 
 export type MultipleChoiceQuestion = {
     id: number;
@@ -83,41 +82,52 @@ export const defaultQuestions: Question[] = Array.from({ length: 50 }, (_, i): Q
 // Keep backward-compat export
 export const questions = defaultQuestions;
 
-/* ── Cloud persistence ── */
+/* ── Cloud persistence via Appwrite Web SDK ── */
+
+import { databases } from '../services/appwrite';
+import { Query, ID } from 'appwrite';
+
+const DATABASE_ID = 'test-app-db';
+const COLLECTION_ID = 'questions';
 
 export async function loadQuestions(): Promise<Question[]> {
     try {
-        const result = await functions.createExecution(
-            MANAGE_QUESTIONS_FUNCTION_ID,
-            '',
-            false,
-            undefined,
-            ExecutionMethod.GET,
-        );
-        if (result.responseBody) {
-            const parsed = JSON.parse(result.responseBody);
-            if (parsed.ok && parsed.questions) {
-                return parsed.questions as Question[];
-            }
+        const result = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, [
+            Query.limit(1),
+        ]);
+        if (result.documents.length > 0) {
+            const doc = result.documents[0];
+            const parsed = JSON.parse(doc.data);
+            return parsed as Question[];
         }
-    } catch {
-        console.warn('Failed to load questions from cloud, using defaults');
+    } catch (e) {
+        console.warn('Failed to load questions from cloud, using defaults', e);
     }
     return defaultQuestions;
 }
 
 export async function saveQuestions(questionsToSave: Question[]): Promise<void> {
-    const result = await functions.createExecution(
-        MANAGE_QUESTIONS_FUNCTION_ID,
-        JSON.stringify({ questions: questionsToSave }),
-        false,
-        undefined,
-        ExecutionMethod.POST,
-    );
-    if (result.responseBody) {
-        const parsed = JSON.parse(result.responseBody);
-        if (!parsed.ok) {
-            throw new Error(parsed.error || 'Failed to save questions');
+    const dataStr = JSON.stringify(questionsToSave);
+
+    try {
+        const result = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, [
+            Query.limit(1),
+        ]);
+
+        if (result.documents.length > 0) {
+            // Update existing document
+            await databases.updateDocument(DATABASE_ID, COLLECTION_ID, result.documents[0].$id, {
+                data: dataStr,
+            });
+        } else {
+            // Create new document
+            await databases.createDocument(DATABASE_ID, COLLECTION_ID, ID.unique(), {
+                data: dataStr,
+            });
         }
+    } catch (e) {
+        console.error('Failed to save questions:', e);
+        throw e;
     }
 }
+
