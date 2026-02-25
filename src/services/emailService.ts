@@ -4,8 +4,8 @@ import { functions, SEND_RESULTS_FUNCTION_ID } from './appwrite';
 
 type Answers = Record<number, string | string[]>;
 
-async function formatResults(answers: Answers, studentName: string): Promise<string> {
-    const questions = await loadQuestions();
+async function formatResults(answers: Answers, studentName: string, code: string): Promise<string> {
+    const questions = await loadQuestions(code);
     const lines: string[] = [];
     let mcCorrect = 0;
     let mcTotal = 0;
@@ -69,8 +69,8 @@ async function formatResults(answers: Answers, studentName: string): Promise<str
     return [...header, ...lines].join('\n');
 }
 
-export async function sendResults(answers: Answers, studentName: string): Promise<void> {
-    const formattedResults = await formatResults(answers, studentName);
+export async function sendResults(answers: Answers, studentName: string, code: string): Promise<void> {
+    const formattedResults = await formatResults(answers, studentName, code);
     let retryCount = 0;
     const maxRetries = 3;
     let success = false;

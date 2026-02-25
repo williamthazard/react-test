@@ -3,16 +3,18 @@ import AccessCodeWall from './components/AccessCodeWall';
 import TestPage from './components/TestPage';
 import TestEditor from './components/TestEditor';
 
-type Role = 'student' | 'editor' | null;
+type AuthState = { role: 'student' | 'editor'; code: string } | null;
 
 function App() {
-  const [role, setRole] = useState<Role>(null);
+  const [auth, setAuth] = useState<AuthState>(null);
 
-  if (!role) {
-    return <AccessCodeWall onUnlock={(r: 'student' | 'editor') => setRole(r)} />;
+  if (!auth) {
+    return <AccessCodeWall onUnlock={(role, code) => setAuth({ role, code })} />;
   }
 
-  return role === 'editor' ? <TestEditor /> : <TestPage />;
+  return auth.role === 'editor'
+    ? <TestEditor code={auth.code} />
+    : <TestPage code={auth.code} />;
 }
 
 export default App;

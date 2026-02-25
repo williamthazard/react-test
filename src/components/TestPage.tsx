@@ -6,7 +6,7 @@ type Answers = Record<number, string | string[]>;
 
 type SubmitState = 'idle' | 'sending' | 'success' | 'error';
 
-export default function TestPage() {
+export default function TestPage({ code }: { code: string }) {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [answers, setAnswers] = useState<Answers>({});
@@ -17,7 +17,7 @@ export default function TestPage() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        loadQuestions().then((q) => {
+        loadQuestions(code).then((q) => {
             setQuestions(q);
             setLoading(false);
         });
@@ -61,7 +61,7 @@ export default function TestPage() {
         setErrorMsg('');
         try {
             const studentName = `${firstName.trim()} ${lastName.trim()}`;
-            await sendResults(answers, studentName);
+            await sendResults(answers, studentName, code);
             setSubmitState('success');
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (err) {

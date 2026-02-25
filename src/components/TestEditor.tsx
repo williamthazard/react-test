@@ -20,7 +20,7 @@ function createBlankQuestion(id: number, qType: QuestionType): Question {
     return { id, type: 'multiple-choice', prompt: '', options: ['', ''], correctIndex: 0 };
 }
 
-export default function TestEditor() {
+export default function TestEditor({ code }: { code: string }) {
     const [questions, setQuestions] = useState<Question[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -29,7 +29,7 @@ export default function TestEditor() {
     const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
 
     useEffect(() => {
-        loadQuestions().then((q) => {
+        loadQuestions(code).then((q) => {
             setQuestions(q);
             setLoading(false);
         });
@@ -124,7 +124,7 @@ export default function TestEditor() {
     const handleSave = async () => {
         setSaving(true);
         try {
-            await saveQuestions(questions);
+            await saveQuestions(code, questions);
             showToast('success', 'Questions saved successfully!');
         } catch {
             showToast('error', 'Failed to save. Please try again.');

@@ -3,7 +3,7 @@ import { ExecutionMethod } from 'appwrite';
 import { functions, VERIFY_FUNCTION_ID } from '../services/appwrite';
 
 interface AccessCodeWallProps {
-    onUnlock: (role: 'student' | 'editor') => void;
+    onUnlock: (role: 'student' | 'editor', code: string) => void;
 }
 
 export default function AccessCodeWall({ onUnlock }: AccessCodeWallProps) {
@@ -73,7 +73,7 @@ export default function AccessCodeWall({ onUnlock }: AccessCodeWallProps) {
 
         if (success) {
             if (valid) {
-                onUnlock(role);
+                onUnlock(role, code);
             } else {
                 setError('Invalid access code. Please try again.');
                 setShake(true);

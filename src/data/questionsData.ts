@@ -1,5 +1,4 @@
 
-
 export type MultipleChoiceQuestion = {
     id: number;
     type: 'multiple-choice';
@@ -82,23 +81,25 @@ export const defaultQuestions: Question[] = Array.from({ length: 50 }, (_, i): Q
 // Keep backward-compat export
 export const questions = defaultQuestions;
 
-/* ── Cloud persistence via Appwrite Web SDK ── */
+/* ── Cloud persistence via verified Appwrite Function ── */
 
-import { databases } from '../services/appwrite';
-import { Query, ID } from 'appwrite';
+import { ExecutionMethod } from 'appwrite';
+import { functions, VERIFY_FUNCTION_ID } from '../services/appwrite';
 
-const DATABASE_ID = 'test-app-db';
-const COLLECTION_ID = 'questions';
-
-export async function loadQuestions(): Promise<Question[]> {
+export async function loadQuestions(code: string): Promise<Question[]> {
     try {
-        const result = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, [
-            Query.limit(1),
-        ]);
-        if (result.documents.length > 0) {
-            const doc = result.documents[0];
-            const parsed = JSON.parse(doc.data);
-            return parsed as Question[];
+        const result = await functions.createExecution(
+            VERIFY_FUNCTION_ID,
+            JSON.stringify({ code, action: 'load-questions' }),
+            false,
+            undefined,
+            ExecutionMethod.POST,
+        );
+        if (result.responseBody) {
+            const parsed = JSON.parse(result.responseBody);
+            if (parsed.ok && parsed.questions) {
+                return parsed.questions as Question[];
+            }
         }
     } catch (e) {
         console.warn('Failed to load questions from cloud, using defaults', e);
@@ -106,28 +107,18 @@ export async function loadQuestions(): Promise<Question[]> {
     return defaultQuestions;
 }
 
-export async function saveQuestions(questionsToSave: Question[]): Promise<void> {
-    const dataStr = JSON.stringify(questionsToSave);
-
-    try {
-        const result = await databases.listDocuments(DATABASE_ID, COLLECTION_ID, [
-            Query.limit(1),
-        ]);
-
-        if (result.documents.length > 0) {
-            // Update existing document
-            await databases.updateDocument(DATABASE_ID, COLLECTION_ID, result.documents[0].$id, {
-                data: dataStr,
-            });
-        } else {
-            // Create new document
-            await databases.createDocument(DATABASE_ID, COLLECTION_ID, ID.unique(), {
-                data: dataStr,
-            });
+export async function saveQuestions(code: string, questionsToSave: Question[]): Promise<void> {
+    const result = await functions.createExecution(
+        VERIFY_FUNCTION_ID,
+        JSON.stringify({ code, action: 'save-questions', questions: questionsToSave }),
+        false,
+        undefined,
+        ExecutionMethod.POST,
+    );
+    if (result.responseBody) {
+        const parsed = JSON.parse(result.responseBody);
+        if (!parsed.ok) {
+            throw new Error(parsed.error || 'Failed to save questions');
         }
-    } catch (e) {
-        console.error('Failed to save questions:', e);
-        throw e;
     }
 }
-
