@@ -3,7 +3,7 @@ import { ExecutionMethod } from 'appwrite';
 import { functions, VERIFY_FUNCTION_ID } from '../services/appwrite';
 
 interface AccessCodeWallProps {
-    onUnlock: () => void;
+    onUnlock: (role: 'student' | 'editor') => void;
 }
 
 export default function AccessCodeWall({ onUnlock }: AccessCodeWallProps) {
@@ -34,6 +34,7 @@ export default function AccessCodeWall({ onUnlock }: AccessCodeWallProps) {
         const maxRetries = 3;
         let success = false;
         let valid = false;
+        let role: 'student' | 'editor' = 'student';
 
         while (retryCount < maxRetries && !success) {
             try {
@@ -52,6 +53,7 @@ export default function AccessCodeWall({ onUnlock }: AccessCodeWallProps) {
                 if (result.responseBody) {
                     const parsed = JSON.parse(result.responseBody);
                     valid = parsed.valid === true;
+                    if (parsed.role) role = parsed.role;
                     success = true;
                 } else {
                     throw new Error('Empty response body');
@@ -71,7 +73,7 @@ export default function AccessCodeWall({ onUnlock }: AccessCodeWallProps) {
 
         if (success) {
             if (valid) {
-                onUnlock();
+                onUnlock(role);
             } else {
                 setError('Invalid access code. Please try again.');
                 setShake(true);

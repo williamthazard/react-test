@@ -1,20 +1,21 @@
-import { questions } from '../data/questionsData';
+import { loadQuestions, type MultipleChoiceQuestion, type MultipleAnswerQuestion } from '../data/questionsData';
 import { ExecutionMethod } from 'appwrite';
 import { functions, SEND_RESULTS_FUNCTION_ID } from './appwrite';
 
-type Answers = Record<number, string>;
+type Answers = Record<number, string | string[]>;
 
-function formatResults(answers: Answers, studentName: string): string {
+async function formatResults(answers: Answers, studentName: string): Promise<string> {
+    const questions = await loadQuestions();
     const lines: string[] = [];
     let mcCorrect = 0;
     let mcTotal = 0;
 
     for (const q of questions) {
-        const answer = answers[q.id] || '(no answer)';
-
         if (q.type === 'multiple-choice') {
             mcTotal++;
-            const correctOption = q.options[q.correctIndex];
+            const mc = q as MultipleChoiceQuestion;
+            const answer = (answers[q.id] as string) || '(no answer)';
+            const correctOption = mc.options[mc.correctIndex];
             const isCorrect = answer === correctOption;
             if (isCorrect) mcCorrect++;
 
@@ -25,7 +26,25 @@ function formatResults(answers: Answers, studentName: string): string {
                 `  Correct Answer: ${correctOption}`,
                 ''
             );
+        } else if (q.type === 'multiple-answer') {
+            mcTotal++;
+            const ma = q as MultipleAnswerQuestion;
+            const selected = (answers[q.id] as string[]) || [];
+            const correctOptions = ma.correctIndices.map((i) => ma.options[i]);
+            const isCorrect =
+                selected.length === correctOptions.length &&
+                correctOptions.every((o) => selected.includes(o));
+            if (isCorrect) mcCorrect++;
+
+            lines.push(
+                `Q${q.id} [Multiple Answer] ${isCorrect ? '✓ CORRECT' : '✗ INCORRECT'}`,
+                `  Prompt: ${q.prompt}`,
+                `  Selected: ${selected.length > 0 ? selected.join(', ') : '(no answer)'}`,
+                `  Correct Answers: ${correctOptions.join(', ')}`,
+                ''
+            );
         } else {
+            const answer = (answers[q.id] as string) || '(no answer)';
             lines.push(
                 `Q${q.id} [Essay]`,
                 `  Prompt: ${q.prompt}`,
@@ -51,7 +70,7 @@ function formatResults(answers: Answers, studentName: string): string {
 }
 
 export async function sendResults(answers: Answers, studentName: string): Promise<void> {
-    const formattedResults = formatResults(answers, studentName);
+    const formattedResults = await formatResults(answers, studentName);
     let retryCount = 0;
     const maxRetries = 3;
     let success = false;
@@ -64,7 +83,7 @@ export async function sendResults(answers: Answers, studentName: string): Promis
                     subject: `Assessment Test Results – ${studentName}`,
                     message: formattedResults,
                 }),
-                false, // synchronous
+                false,
                 undefined,
                 ExecutionMethod.POST,
             );

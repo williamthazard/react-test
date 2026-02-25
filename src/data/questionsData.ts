@@ -1,3 +1,6 @@
+import { ExecutionMethod } from 'appwrite';
+import { functions, MANAGE_QUESTIONS_FUNCTION_ID } from '../services/appwrite';
+
 export type MultipleChoiceQuestion = {
     id: number;
     type: 'multiple-choice';
@@ -6,13 +9,23 @@ export type MultipleChoiceQuestion = {
     correctIndex: number;
 };
 
+export type MultipleAnswerQuestion = {
+    id: number;
+    type: 'multiple-answer';
+    prompt: string;
+    options: string[];
+    correctIndices: number[];
+};
+
 export type EssayQuestion = {
     id: number;
     type: 'essay';
     prompt: string;
 };
 
-export type Question = MultipleChoiceQuestion | EssayQuestion;
+export type Question = MultipleChoiceQuestion | MultipleAnswerQuestion | EssayQuestion;
+
+/* ── Default generated questions ── */
 
 const loremShort = [
     'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
@@ -44,9 +57,8 @@ function pick<T>(arr: T[], index: number): T {
     return arr[index % arr.length];
 }
 
-export const questions: Question[] = Array.from({ length: 50 }, (_, i): Question => {
+export const defaultQuestions: Question[] = Array.from({ length: 50 }, (_, i): Question => {
     const id = i + 1;
-    // Roughly 60% multiple choice, 40% essay
     if (id % 5 !== 0 && id % 5 !== 3) {
         return {
             id,
@@ -58,7 +70,7 @@ export const questions: Question[] = Array.from({ length: 50 }, (_, i): Question
                 pick(loremShort, i + 2),
                 pick(loremShort, i + 3),
             ],
-            correctIndex: i % 4, // deterministic "correct" answer
+            correctIndex: i % 4,
         };
     }
     return {
@@ -67,3 +79,45 @@ export const questions: Question[] = Array.from({ length: 50 }, (_, i): Question
         prompt: `${id}. ${pick(loremLong, i)}`,
     };
 });
+
+// Keep backward-compat export
+export const questions = defaultQuestions;
+
+/* ── Cloud persistence ── */
+
+export async function loadQuestions(): Promise<Question[]> {
+    try {
+        const result = await functions.createExecution(
+            MANAGE_QUESTIONS_FUNCTION_ID,
+            '',
+            false,
+            undefined,
+            ExecutionMethod.GET,
+        );
+        if (result.responseBody) {
+            const parsed = JSON.parse(result.responseBody);
+            if (parsed.ok && parsed.questions) {
+                return parsed.questions as Question[];
+            }
+        }
+    } catch {
+        console.warn('Failed to load questions from cloud, using defaults');
+    }
+    return defaultQuestions;
+}
+
+export async function saveQuestions(questionsToSave: Question[]): Promise<void> {
+    const result = await functions.createExecution(
+        MANAGE_QUESTIONS_FUNCTION_ID,
+        JSON.stringify({ questions: questionsToSave }),
+        false,
+        undefined,
+        ExecutionMethod.POST,
+    );
+    if (result.responseBody) {
+        const parsed = JSON.parse(result.responseBody);
+        if (!parsed.ok) {
+            throw new Error(parsed.error || 'Failed to save questions');
+        }
+    }
+}

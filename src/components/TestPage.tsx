@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { questions, type Question } from '../data/questionsData';
+import { useState, useEffect } from 'react';
+import { loadQuestions, type Question, type MultipleAnswerQuestion } from '../data/questionsData';
 import { sendResults } from '../services/emailService';
 
-type Answers = Record<number, string>;
+type Answers = Record<number, string | string[]>;
 
 type SubmitState = 'idle' | 'sending' | 'success' | 'error';
 
@@ -13,6 +13,15 @@ export default function TestPage() {
     const [submitState, setSubmitState] = useState<SubmitState>('idle');
     const [errorMsg, setErrorMsg] = useState('');
     const [nameError, setNameError] = useState(false);
+    const [questions, setQuestions] = useState<Question[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        loadQuestions().then((q) => {
+            setQuestions(q);
+            setLoading(false);
+        });
+    }, []);
 
     const handleSelect = (questionId: number, value: string) => {
         setAnswers((prev) => ({ ...prev, [questionId]: value }));
@@ -22,8 +31,22 @@ export default function TestPage() {
         setAnswers((prev) => ({ ...prev, [questionId]: value }));
     };
 
-    const answeredCount = Object.keys(answers).filter((k) => answers[Number(k)]?.trim()).length;
-    const progress = Math.round((answeredCount / questions.length) * 100);
+    const handleMultiSelect = (questionId: number, option: string) => {
+        setAnswers((prev) => {
+            const current = (prev[questionId] as string[]) || [];
+            if (current.includes(option)) {
+                return { ...prev, [questionId]: current.filter((o) => o !== option) };
+            }
+            return { ...prev, [questionId]: [...current, option] };
+        });
+    };
+
+    const answeredCount = Object.keys(answers).filter((k) => {
+        const a = answers[Number(k)];
+        if (Array.isArray(a)) return a.length > 0;
+        return typeof a === 'string' && a.trim() !== '';
+    }).length;
+    const progress = questions.length > 0 ? Math.round((answeredCount / questions.length) * 100) : 0;
     const hasName = firstName.trim() !== '' && lastName.trim() !== '';
 
     const handleSubmit = async () => {
@@ -47,6 +70,14 @@ export default function TestPage() {
             setSubmitState('error');
         }
     };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#e8edf5] via-[#dde4f0] to-[#d0d9eb]">
+                <div className="text-pit-blue text-lg font-semibold animate-pulse">Loading questions…</div>
+            </div>
+        );
+    }
 
     if (submitState === 'success') {
         return (
@@ -179,12 +210,14 @@ export default function TestPage() {
                                 {q.id}
                             </span>
                             <span
-                                className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider ${q.type === 'multiple-choice'
-                                    ? 'bg-pit-blue/10 text-pit-blue'
-                                    : 'bg-pit-yellow/30 text-pit-yellow-dark'
+                                className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider ${q.type === 'essay'
+                                    ? 'bg-pit-yellow/30 text-pit-yellow-dark'
+                                    : q.type === 'multiple-answer'
+                                        ? 'bg-green-100 text-green-700'
+                                        : 'bg-pit-blue/10 text-pit-blue'
                                     }`}
                             >
-                                {q.type === 'multiple-choice' ? 'Multiple Choice' : 'Essay'}
+                                {q.type === 'multiple-choice' ? 'Multiple Choice' : q.type === 'multiple-answer' ? 'Multiple Answer' : 'Essay'}
                             </span>
                         </div>
                         <p className="text-pit-grey leading-relaxed mb-5 text-[15px]">{q.prompt}</p>
@@ -225,11 +258,47 @@ export default function TestPage() {
                                     );
                                 })}
                             </div>
+                        ) : q.type === 'multiple-answer' ? (
+                            <div className="space-y-2.5">
+                                <p className="text-xs text-pit-grey-light italic mb-1">Select all that apply</p>
+                                {(q as MultipleAnswerQuestion).options.map((opt, idx) => {
+                                    const letter = String.fromCharCode(65 + idx);
+                                    const selected = ((answers[q.id] as string[]) || []);
+                                    const isSelected = selected.includes(opt);
+                                    return (
+                                        <label
+                                            key={idx}
+                                            className={`flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-all duration-200 ${isSelected
+                                                ? 'border-green-500 bg-green-50/50 shadow-sm'
+                                                : 'border-white/50 bg-white/50 hover:border-white/80 hover:bg-white/60'
+                                                }`}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                onChange={() => handleMultiSelect(q.id, opt)}
+                                                className="sr-only"
+                                            />
+                                            <span
+                                                className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold transition-colors ${isSelected
+                                                    ? 'bg-green-500 text-white'
+                                                    : 'bg-gray-100 text-pit-grey-light'
+                                                    }`}
+                                            >
+                                                {isSelected ? '✓' : letter}
+                                            </span>
+                                            <span className={`text-sm ${isSelected ? 'text-green-700 font-medium' : 'text-pit-grey'}`}>
+                                                {opt}
+                                            </span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
                         ) : (
                             <textarea
                                 rows={4}
                                 placeholder="Type your answer here…"
-                                value={answers[q.id] || ''}
+                                value={(answers[q.id] as string) || ''}
                                 onChange={(e) => handleEssay(q.id, e.target.value)}
                                 className="w-full px-4 py-3 rounded-xl bg-white/50 border border-white/50 text-pit-grey placeholder-gray-400 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-pit-blue/30 focus:border-pit-blue resize-y transition-all"
                             />
