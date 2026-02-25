@@ -15,6 +15,7 @@ export default function TestPage({ code }: { code: string }) {
     const [nameError, setNameError] = useState(false);
     const [questions, setQuestions] = useState<Question[]>([]);
     const [loading, setLoading] = useState(true);
+    const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
     useEffect(() => {
         loadQuestions(code).then((q) => {
@@ -113,7 +114,7 @@ export default function TestPage({ code }: { code: string }) {
         );
     }
 
-    return (
+    const page = (
         <div className="min-h-screen bg-gradient-to-br from-[#e8edf5] via-[#dde4f0] to-[#d0d9eb] relative">
             {/* Top yellow accent bar */}
             <div className="fixed top-0 left-0 w-full h-1.5 bg-pit-yellow z-60" />
@@ -225,7 +226,8 @@ export default function TestPage({ code }: { code: string }) {
                             <img
                                 src={q.imageUrl}
                                 alt="Question image"
-                                className="mb-5 max-w-full max-h-80 rounded-xl border border-white/40 shadow-sm"
+                                onClick={() => setLightboxSrc(q.imageUrl!)}
+                                className="mb-5 max-w-full max-h-80 rounded-xl border border-white/40 shadow-sm cursor-pointer hover:shadow-md hover:scale-[1.01] transition-all duration-200"
                             />
                         )}
 
@@ -355,5 +357,38 @@ export default function TestPage({ code }: { code: string }) {
                 </div>
             </main>
         </div>
+    );
+
+    return (
+        <>
+            {page}
+
+            {/* Lightbox modal */}
+            {lightboxSrc && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in"
+                    onClick={() => setLightboxSrc(null)}
+                >
+                    {/* Blurred backdrop */}
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+
+                    {/* Close button */}
+                    <button
+                        onClick={() => setLightboxSrc(null)}
+                        className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 text-white text-xl font-bold flex items-center justify-center transition-colors"
+                    >
+                        ×
+                    </button>
+
+                    {/* Image */}
+                    <img
+                        src={lightboxSrc}
+                        alt="Enlarged question image"
+                        className="relative z-10 max-w-[90vw] max-h-[85vh] rounded-2xl shadow-2xl object-contain"
+                        onClick={(e) => e.stopPropagation()}
+                    />
+                </div>
+            )}
+        </>
     );
 }
