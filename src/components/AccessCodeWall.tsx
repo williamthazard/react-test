@@ -109,7 +109,7 @@ export default function AccessCodeWall({ onUnlock }: AccessCodeWallProps) {
                 </div>
 
                 <h1 className="text-2xl font-bold text-center text-white font-heading tracking-tight">
-                    Access Required
+                    Access Code Required
                 </h1>
                 <p className="text-sm text-center text-blue-200/70 mb-8 mt-2">
                     Enter the access code to view the test

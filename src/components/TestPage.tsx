@@ -213,7 +213,7 @@ export default function TestPage() {
                                 className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider ${q.type === 'essay'
                                     ? 'bg-pit-yellow/30 text-pit-yellow-dark'
                                     : q.type === 'multiple-answer'
-                                        ? 'bg-green-100 text-green-700'
+                                        ? 'bg-pit-yellow/20 text-pit-yellow-dark'
                                         : 'bg-pit-blue/10 text-pit-blue'
                                     }`}
                             >
@@ -269,7 +269,7 @@ export default function TestPage() {
                                         <label
                                             key={idx}
                                             className={`flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-all duration-200 ${isSelected
-                                                ? 'border-green-500 bg-green-50/50 shadow-sm'
+                                                ? 'border-pit-yellow bg-pit-yellow/10 shadow-sm'
                                                 : 'border-white/50 bg-white/50 hover:border-white/80 hover:bg-white/60'
                                                 }`}
                                         >
@@ -281,13 +281,13 @@ export default function TestPage() {
                                             />
                                             <span
                                                 className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold transition-colors ${isSelected
-                                                    ? 'bg-green-500 text-white'
+                                                    ? 'bg-pit-yellow text-pit-blue'
                                                     : 'bg-gray-100 text-pit-grey-light'
                                                     }`}
                                             >
                                                 {isSelected ? '✓' : letter}
                                             </span>
-                                            <span className={`text-sm ${isSelected ? 'text-green-700 font-medium' : 'text-pit-grey'}`}>
+                                            <span className={`text-sm ${isSelected ? 'text-pit-blue font-medium' : 'text-pit-grey'}`}>
                                                 {opt}
                                             </span>
                                         </label>

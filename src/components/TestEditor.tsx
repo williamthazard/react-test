@@ -290,14 +290,14 @@ export default function TestEditor() {
                                                 name={`correct-${q.id}`}
                                                 checked={(q as MultipleChoiceQuestion).correctIndex === oIndex}
                                                 onChange={() => setCorrectIndex(qIndex, oIndex)}
-                                                className="w-4 h-4 accent-green-500 shrink-0"
+                                                className="w-4 h-4 accent-[#3161AC] shrink-0"
                                             />
                                         ) : (
                                             <input
                                                 type="checkbox"
                                                 checked={(q as MultipleAnswerQuestion).correctIndices.includes(oIndex)}
                                                 onChange={() => toggleCorrectIndex(qIndex, oIndex)}
-                                                className="w-4 h-4 accent-green-500 shrink-0 rounded"
+                                                className="w-4 h-4 accent-[#F7CC07] shrink-0 rounded"
                                             />
                                         )}
 
