@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
     type Question,
     type MultipleChoiceQuestion,
@@ -27,6 +27,61 @@ export default function TestEditor({ code }: { code: string }) {
     const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [confirmReset, setConfirmReset] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+    const [draggingOver, setDraggingOver] = useState<number | null>(null);
+    const [uploadingImage, setUploadingImage] = useState<number | null>(null);
+    const fileInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+
+    // Image compression: resize to max 800px, JPEG 70%
+    const compressImage = useCallback((file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX = 800;
+                    let { width, height } = img;
+                    if (width > MAX || height > MAX) {
+                        if (width > height) {
+                            height = Math.round((height * MAX) / width);
+                            width = MAX;
+                        } else {
+                            width = Math.round((width * MAX) / height);
+                            height = MAX;
+                        }
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d')!;
+                    ctx.drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL('image/jpeg', 0.7));
+                };
+                img.onerror = reject;
+                img.src = reader.result as string;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }, []);
+
+    const handleImageFile = useCallback(async (qIndex: number, file: File) => {
+        if (!file.type.startsWith('image/')) {
+            showToast('error', 'Please drop an image file');
+            return;
+        }
+        setUploadingImage(qIndex);
+        try {
+            const dataUrl = await compressImage(file);
+            updateQuestion(qIndex, { ...questions[qIndex], imageUrl: dataUrl });
+        } catch {
+            showToast('error', 'Failed to process image');
+        }
+        setUploadingImage(null);
+    }, [questions, compressImage]);
+
+    const removeImage = (qIndex: number) => {
+        updateQuestion(qIndex, { ...questions[qIndex], imageUrl: undefined });
+    };
 
     useEffect(() => {
         loadQuestions(code).then((q) => {
@@ -266,14 +321,88 @@ export default function TestEditor({ code }: { code: string }) {
                             </button>
                         </div>
 
-                        {/* Prompt */}
-                        <textarea
-                            value={q.prompt}
-                            onChange={(e) => updatePrompt(qIndex, e.target.value)}
-                            placeholder="Enter question prompt…"
-                            rows={3}
-                            className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/60 text-pit-grey placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-pit-blue/30 font-body text-sm resize-y"
-                        />
+                        {/* Prompt + image drop zone */}
+                        <div
+                            className={`relative rounded-xl transition-all ${draggingOver === qIndex
+                                ? 'ring-2 ring-pit-blue ring-offset-2 bg-pit-blue/5'
+                                : ''
+                                }`}
+                            onDragOver={(e) => {
+                                e.preventDefault();
+                                setDraggingOver(qIndex);
+                            }}
+                            onDragLeave={() => setDraggingOver(null)}
+                            onDrop={(e) => {
+                                e.preventDefault();
+                                setDraggingOver(null);
+                                const file = e.dataTransfer.files[0];
+                                if (file) handleImageFile(qIndex, file);
+                            }}
+                        >
+                            <textarea
+                                value={q.prompt}
+                                onChange={(e) => updatePrompt(qIndex, e.target.value)}
+                                placeholder="Enter question prompt…"
+                                rows={3}
+                                className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/60 text-pit-grey placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-pit-blue/30 font-body text-sm resize-y"
+                            />
+
+                            {/* Drag overlay */}
+                            {draggingOver === qIndex && (
+                                <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-pit-blue/10 border-2 border-dashed border-pit-blue/40 pointer-events-none">
+                                    <span className="text-pit-blue font-semibold text-sm">Drop image here</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Image preview or add button */}
+                        {q.imageUrl ? (
+                            <div className="mt-3 relative inline-block group">
+                                <img
+                                    src={q.imageUrl}
+                                    alt="Question attachment"
+                                    className="max-h-48 rounded-xl border border-white/40 shadow-sm"
+                                />
+                                <button
+                                    onClick={() => removeImage(qIndex)}
+                                    className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                    title="Remove image"
+                                >
+                                    ×
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="mt-2 flex items-center gap-2">
+                                <button
+                                    onClick={() => fileInputRefs.current[qIndex]?.click()}
+                                    disabled={uploadingImage === qIndex}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-pit-grey-light hover:text-pit-blue border border-white/40 hover:border-pit-blue/30 rounded-lg transition-all disabled:opacity-50"
+                                >
+                                    {uploadingImage === qIndex ? (
+                                        <span className="animate-pulse">Processing…</span>
+                                    ) : (
+                                        <>
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                            Add image
+                                        </>
+                                    )}
+                                </button>
+                                <span className="text-[10px] text-gray-400">or drag &amp; drop onto the prompt</span>
+                                <input
+                                    ref={(el) => { fileInputRefs.current[qIndex] = el; }}
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0];
+                                        if (file) handleImageFile(qIndex, file);
+                                        e.target.value = '';
+                                    }}
+                                />
+                            </div>
+                        )}
 
                         {/* Options for MC and MA */}
                         {q.type !== 'essay' && (

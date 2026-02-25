@@ -3,6 +3,7 @@ export type MultipleChoiceQuestion = {
     id: number;
     type: 'multiple-choice';
     prompt: string;
+    imageUrl?: string;
     options: string[];
     correctIndex: number;
 };
@@ -11,6 +12,7 @@ export type MultipleAnswerQuestion = {
     id: number;
     type: 'multiple-answer';
     prompt: string;
+    imageUrl?: string;
     options: string[];
     correctIndices: number[];
 };
@@ -19,6 +21,7 @@ export type EssayQuestion = {
     id: number;
     type: 'essay';
     prompt: string;
+    imageUrl?: string;
 };
 
 export type Question = MultipleChoiceQuestion | MultipleAnswerQuestion | EssayQuestion;

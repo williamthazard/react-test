@@ -221,6 +221,13 @@ export default function TestPage({ code }: { code: string }) {
                             </span>
                         </div>
                         <p className="text-pit-grey leading-relaxed mb-5 text-[15px]">{q.prompt}</p>
+                        {q.imageUrl && (
+                            <img
+                                src={q.imageUrl}
+                                alt="Question image"
+                                className="mb-5 max-w-full max-h-80 rounded-xl border border-white/40 shadow-sm"
+                            />
+                        )}
 
                         {q.type === 'multiple-choice' ? (
                             <div className="space-y-2.5">
