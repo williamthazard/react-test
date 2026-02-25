@@ -29,8 +29,8 @@ cd assessment-app
 # Install standard dependencies
 npm install
 
-# Install Tailwind CSS and its peer dependencies
-npm install -D tailwindcss postcss autoprefixer
+# Install Tailwind CSS v3 and its peer dependencies
+npm install -D tailwindcss@3 postcss autoprefixer
 
 # Initialize Tailwind configuration
 npx tailwindcss init -p
