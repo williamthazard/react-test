@@ -2,10 +2,10 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { ExecutionMethod } from 'appwrite';
 import { functions, VERIFY_FUNCTION_ID } from '../services/appwrite';
 
-import { type Question } from '../data/questionsData';
+import { type TestDataPayload } from '../data/questionsData';
 
 interface AccessCodeWallProps {
-    onUnlock: (role: 'student' | 'editor', code: string, questions: Question[] | null) => void;
+    onUnlock: (role: 'student' | 'editor', code: string, payload: TestDataPayload | null) => void;
 }
 
 export default function AccessCodeWall({ onUnlock }: AccessCodeWallProps) {
@@ -37,7 +37,7 @@ export default function AccessCodeWall({ onUnlock }: AccessCodeWallProps) {
         let success = false;
         let valid = false;
         let role: 'student' | 'editor' = 'student';
-        let preloadedQuestions: Question[] | null = null;
+        let preloadedPayload: TestDataPayload | null = null;
 
         while (retryCount < maxRetries && !success) {
             try {
@@ -57,7 +57,16 @@ export default function AccessCodeWall({ onUnlock }: AccessCodeWallProps) {
                     const parsed = JSON.parse(result.responseBody);
                     valid = parsed.valid === true;
                     if (parsed.role) role = parsed.role;
-                    preloadedQuestions = parsed.questions || null;
+
+                    if (parsed.questions) {
+                        // Handle backward compatibility just like loadQuestions does
+                        if (Array.isArray(parsed.questions)) {
+                            preloadedPayload = { settings: {}, questions: parsed.questions };
+                        } else if (parsed.questions.questions) {
+                            preloadedPayload = parsed.questions;
+                        }
+                    }
+
                     success = true;
                 } else {
                     throw new Error('Empty response body');
@@ -77,7 +86,7 @@ export default function AccessCodeWall({ onUnlock }: AccessCodeWallProps) {
 
         if (success) {
             if (valid) {
-                onUnlock(role, code, preloadedQuestions);
+                onUnlock(role, code, preloadedPayload);
             } else {
                 setError('Invalid access code. Please try again.');
                 setShake(true);

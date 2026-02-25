@@ -23,7 +23,7 @@ export const SEND_RESULTS_FUNCTION_ID = 'send-test-results';
 
 ## 2. Question Data Models
 
-Create `src/data/questionsData.ts`. This file defines the TypeScript interfaces for our 3 question types, provides default fallback questions, and houses the `saveQuestions` API wrapper.
+Create `src/data/questionsData.ts`. This file defines the TypeScript interfaces for our 3 question types, provides default fallback questions, and houses the `saveQuestions` API wrapper. We wrap the questions in a `TestDataPayload` to securely save test configuration settings to the database.
 
 ```typescript
 import { ExecutionMethod } from 'appwrite';
@@ -36,6 +36,7 @@ export type MultipleChoiceQuestion = {
     imageUrl?: string; // Stored as a Base64 string
     options: string[];
     correctIndex: number;
+    randomizeOptions?: boolean;
 };
 
 export type MultipleAnswerQuestion = {
@@ -45,6 +46,7 @@ export type MultipleAnswerQuestion = {
     imageUrl?: string;
     options: string[];
     correctIndices: number[];
+    randomizeOptions?: boolean;
 };
 
 export type EssayQuestion = {
@@ -55,6 +57,15 @@ export type EssayQuestion = {
 };
 
 export type Question = MultipleChoiceQuestion | MultipleAnswerQuestion | EssayQuestion;
+
+export type TestConfig = {
+    randomizeQuestions?: boolean;
+};
+
+export type TestDataPayload = {
+    settings: TestConfig;
+    questions: Question[];
+};
 
 export const defaultQuestions: Question[] = [
     {
@@ -90,9 +101,11 @@ async function executeWithRetry(body: string): Promise<string | null> {
     return null;
 }
 
-export async function saveQuestions(code: string, questionsToSave: Question[]): Promise<void> {
+export async function saveQuestions(code: string, payload: TestDataPayload): Promise<void> {
     const responseBody = await executeWithRetry(
-        JSON.stringify({ code, action: 'save-questions', questions: questionsToSave }),
+        // Pass the entire { settings, questions } payload directly into the 'questions' field 
+        // to avoid needing to redeploy the backend function for minor data schema updates.
+        JSON.stringify({ code, action: 'save-questions', questions: payload }),
     );
     if (!responseBody) throw new Error('Failed to save — server completely unreachable');
     

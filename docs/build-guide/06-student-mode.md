@@ -1,6 +1,42 @@
 # Part 6: Student Mode (`TestPage.tsx`)
 
-The `TestPage` component renders the test for students. Like the Editor, it relies on `initialQuestions` passed down from the auth screen to render instantly.
+The `TestPage` component renders the test for students. Like the Editor, it relies on the preloaded `initialPayload` passed down from the auth screen. This payload contains both the questions array and global configuration settings (like `randomizeQuestions`).
+
+## Initialization and Randomization
+
+When the `TestPage` mounts, it intercepts the `TestDataPayload`. Because the payload dictates whether to randomize the global question order or the order of individual multiple-choice options, we apply a Fisher-Yates shuffle directly in the browser before rendering:
+
+```tsx
+const processPayload = (payload: TestDataPayload) => {
+    let processed = [...payload.questions];
+    
+    // 1. Global Question Shuffle
+    if (payload.settings?.randomizeQuestions) {
+        processed.sort(() => Math.random() - 0.5);
+    }
+    
+    // 2. Individual Option Shuffle
+    processed = processed.map(q => {
+        if (q.type !== 'essay' && (q as MultipleChoiceQuestion | MultipleAnswerQuestion).randomizeOptions) {
+            const qWithOpts = { ...q } as MultipleChoiceQuestion | MultipleAnswerQuestion;
+            qWithOpts.options = [...qWithOpts.options].sort(() => Math.random() - 0.5);
+            return qWithOpts;
+        }
+        return q;
+    });
+    
+    setQuestions(processed);
+    setLoading(false);
+};
+
+useEffect(() => {
+    if (initialPayload) {
+        processPayload(initialPayload);
+    } else {
+        doLoad();
+    }
+}, [initialPayload, code]);
+```
 
 ## The Answers State Map
 
@@ -86,7 +122,8 @@ const handleSubmit = async () => {
     
     try {
         setSubmitState('sending');
-        await sendResults(firstName, lastName, answers, questions, code);
+        const studentName = `${firstName.trim()} ${lastName.trim()}`;
+        await sendResults(answers, studentName, code);
         setSubmitState('success');
     } catch (err) {
         setSubmitState('error');

@@ -4,24 +4,26 @@ The `TestEditor` is an interactive builder that enables teachers to create and m
 
 ## State Management and Initialization
 
-The editor receives the `initialQuestions` prop passed down from `App.tsx` (which originated from `AccessCodeWall`). If this array exists, the editor skips the loading screen. If it doesn't, it falls back to fetching them (e.g., if the user refreshed the page and the cache cleared).
+The editor leverages `framer-motion` for spring-physics drag-and-drop reordering logic. It receives the `initialPayload` structured data prop passed down from `App.tsx` (which originated from `AccessCodeWall`). If this exists, the editor skips the loading screen. 
 
 ```tsx
-export default function TestEditor({ code, initialQuestions }: { code: string; initialQuestions?: Question[] | null }) {
+import { Reorder } from 'framer-motion';
+
+export default function TestEditor({ code, initialPayload }: { code: string; initialPayload?: TestDataPayload | null }) {
     const [questions, setQuestions] = useState<Question[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
+    const [config, setConfig] = useState<TestConfig>({});
     
     // ... UI State (toasts, confirmations, drag-and-drop feedback)
 
     useEffect(() => {
-        if (initialQuestions) {
-            setQuestions(initialQuestions);
+        if (initialPayload) {
+            setQuestions(initialPayload.questions);
+            setConfig(initialPayload.settings);
             setLoading(false);
         } else {
             // Fallback load code...
         }
-    }, [initialQuestions, code]);
+    }, [initialPayload, code]);
 ```
 
 ## Image Compression and Storage
@@ -96,13 +98,13 @@ const handleDrop = async (e: React.DragEvent, qIndex: number) => {
 
 ## Saving Changes
 
-Because the editor array is just standard React state, we push it to the server using the `saveQuestions` API wrapper from Part 3.
+Because the editor array is just standard React state (managed smoothly by `Reorder.Group`), we push both the global settings configuration and the questions array to the server using the `saveQuestions` API wrapper from Part 3.
 
 ```tsx
 const handleSave = async () => {
     try {
         setSaving(true);
-        await saveQuestions(code, questions);
+        await saveQuestions(code, { settings: config, questions });
         showToast('success', 'Changes saved successfully');
     } catch (err) {
         showToast('error', err instanceof Error ? err.message : 'Failed to save');

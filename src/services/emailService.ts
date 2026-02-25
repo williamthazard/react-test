@@ -5,7 +5,8 @@ import { functions, SEND_RESULTS_FUNCTION_ID } from './appwrite';
 type Answers = Record<number, string | string[]>;
 
 async function formatResults(answers: Answers, studentName: string, code: string): Promise<string> {
-    const questions = await loadQuestions(code);
+    const payload = await loadQuestions(code);
+    const questions = payload.questions;
     const lines: string[] = [];
     let mcCorrect = 0;
     let mcTotal = 0;

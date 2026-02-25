@@ -3,10 +3,13 @@ import {
     type Question,
     type MultipleChoiceQuestion,
     type MultipleAnswerQuestion,
+    type TestConfig,
+    type TestDataPayload,
     defaultQuestions,
     loadQuestions,
     saveQuestions,
 } from '../data/questionsData';
+import { Reorder } from 'framer-motion';
 
 type QuestionType = 'multiple-choice' | 'multiple-answer' | 'essay';
 
@@ -20,8 +23,9 @@ function createBlankQuestion(id: number, qType: QuestionType): Question {
     return { id, type: 'multiple-choice', prompt: '', options: ['', ''], correctIndex: 0 };
 }
 
-export default function TestEditor({ code, initialQuestions }: { code: string; initialQuestions?: Question[] | null }) {
+export default function TestEditor({ code, initialPayload }: { code: string; initialPayload?: TestDataPayload | null }) {
     const [questions, setQuestions] = useState<Question[]>([]);
+    const [config, setConfig] = useState<TestConfig>({});
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -88,8 +92,9 @@ export default function TestEditor({ code, initialQuestions }: { code: string; i
         setLoading(true);
         setLoadError(false);
         loadQuestions(code)
-            .then((q) => {
-                setQuestions(q);
+            .then((payload) => {
+                setQuestions(payload.questions);
+                setConfig(payload.settings);
                 setLoading(false);
             })
             .catch(() => {
@@ -99,13 +104,14 @@ export default function TestEditor({ code, initialQuestions }: { code: string; i
     };
 
     useEffect(() => {
-        if (initialQuestions) {
-            setQuestions(initialQuestions);
+        if (initialPayload) {
+            setQuestions(initialPayload.questions);
+            setConfig(initialPayload.settings);
             setLoading(false);
         } else {
             doLoad();
         }
-    }, [initialQuestions, code]);
+    }, [initialPayload, code]);
 
     const showToast = (type: 'success' | 'error', message: string) => {
         setToast({ type, message });
@@ -131,6 +137,45 @@ export default function TestEditor({ code, initialQuestions }: { code: string; i
 
     const updatePrompt = (index: number, prompt: string) => {
         updateQuestion(index, { ...questions[index], prompt });
+    };
+
+    const toggleRandomizeOptions = (qIndex: number) => {
+        const q = questions[qIndex] as MultipleChoiceQuestion | MultipleAnswerQuestion;
+        updateQuestion(qIndex, { ...q, randomizeOptions: !q.randomizeOptions });
+    };
+
+    const shuffleOptions = (qIndex: number) => {
+        const q = questions[qIndex] as MultipleChoiceQuestion | MultipleAnswerQuestion;
+        const originalOptions = [...q.options];
+        const shuffledOptions = [...q.options]
+            .map(value => ({ value, sort: Math.random() }))
+            .sort((a, b) => a.sort - b.sort)
+            .map(({ value }) => value);
+
+        if (q.type === 'multiple-choice') {
+            const correctStr = originalOptions[q.correctIndex];
+            const newIndex = shuffledOptions.indexOf(correctStr);
+            updateQuestion(qIndex, { ...q, options: shuffledOptions, correctIndex: newIndex > -1 ? newIndex : 0 });
+        } else {
+            const correctStrs = q.correctIndices.map(i => originalOptions[i]);
+            const newIndices = correctStrs.map(str => shuffledOptions.indexOf(str)).filter(i => i > -1).sort((a, b) => a - b);
+            updateQuestion(qIndex, { ...q, options: shuffledOptions, correctIndices: newIndices.length ? newIndices : [0] });
+        }
+    };
+
+    const reorderOptions = (qIndex: number, newOptions: string[]) => {
+        const q = questions[qIndex] as MultipleChoiceQuestion | MultipleAnswerQuestion;
+        const originalOptions = [...q.options];
+
+        if (q.type === 'multiple-choice') {
+            const correctStr = originalOptions[q.correctIndex];
+            const newIndex = newOptions.indexOf(correctStr);
+            updateQuestion(qIndex, { ...q, options: newOptions, correctIndex: newIndex > -1 ? newIndex : 0 });
+        } else {
+            const correctStrs = q.correctIndices.map(i => originalOptions[i]);
+            const newIndices = correctStrs.map(str => newOptions.indexOf(str)).filter(i => i > -1).sort((a, b) => a - b);
+            updateQuestion(qIndex, { ...q, options: newOptions, correctIndices: newIndices.length ? newIndices : [0] });
+        }
     };
 
     const updateOption = (qIndex: number, oIndex: number, value: string) => {
@@ -196,7 +241,7 @@ export default function TestEditor({ code, initialQuestions }: { code: string; i
     const handleSave = async () => {
         setSaving(true);
         try {
-            await saveQuestions(code, questions);
+            await saveQuestions(code, { settings: config, questions });
             showToast('success', 'Questions saved successfully!');
         } catch {
             showToast('error', 'Failed to save. Please try again.');
@@ -206,6 +251,7 @@ export default function TestEditor({ code, initialQuestions }: { code: string; i
 
     const handleReset = () => {
         setQuestions([...defaultQuestions]);
+        setConfig({});
         setConfirmReset(false);
         showToast('success', 'Reset to default questions. Click Save to persist.');
     };
@@ -318,192 +364,272 @@ export default function TestEditor({ code, initialQuestions }: { code: string; i
                 </div>
             )}
 
-            {/* Questions */}
-            <main className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-                {questions.map((q, qIndex) => (
-                    <div
-                        key={q.id}
-                        className="p-6 rounded-2xl border border-white/40 bg-white/40 backdrop-blur-xl shadow-sm hover:shadow-md transition-all duration-300"
-                    >
-                        {/* Header row */}
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-3">
-                                <span className="w-8 h-8 rounded-full bg-pit-blue text-white text-sm font-bold flex items-center justify-center">
-                                    {qIndex + 1}
-                                </span>
-                                <select
-                                    value={q.type}
-                                    onChange={(e) => changeType(qIndex, e.target.value as QuestionType)}
-                                    className="text-xs font-semibold uppercase tracking-wider px-3 py-1.5 rounded-full border border-pit-blue/20 bg-white/80 text-pit-blue focus:outline-none focus:ring-2 focus:ring-pit-blue/30"
-                                >
-                                    {(Object.keys(typeLabels) as QuestionType[]).map((t) => (
-                                        <option key={t} value={t}>{typeLabels[t]}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <button
-                                onClick={() => setConfirmDelete(qIndex)}
-                                className="p-2 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"
-                                title="Delete question"
-                            >
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                            </button>
-                        </div>
-
-                        {/* Prompt + image drop zone */}
-                        <div
-                            className={`relative rounded-xl transition-all ${draggingOver === qIndex
-                                ? 'ring-2 ring-pit-blue ring-offset-2 bg-pit-blue/5'
-                                : ''
-                                }`}
-                            onDragOver={(e) => {
-                                e.preventDefault();
-                                setDraggingOver(qIndex);
-                            }}
-                            onDragLeave={() => setDraggingOver(null)}
-                            onDrop={(e) => {
-                                e.preventDefault();
-                                setDraggingOver(null);
-                                const file = e.dataTransfer.files[0];
-                                if (file) handleImageFile(qIndex, file);
-                            }}
-                        >
-                            <textarea
-                                value={q.prompt}
-                                onChange={(e) => updatePrompt(qIndex, e.target.value)}
-                                placeholder="Enter question prompt…"
-                                rows={3}
-                                className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/60 text-pit-grey placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-pit-blue/30 font-body text-sm resize-y"
+            {/* Global Settings */}
+            <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 pt-6 pb-2">
+                <div className="flex items-center justify-between p-4 rounded-xl border border-white/40 bg-white/40 backdrop-blur-md shadow-sm">
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                        <div className="relative flex items-center justify-center">
+                            <input
+                                type="checkbox"
+                                checked={!!config.randomizeQuestions}
+                                onChange={(e) => setConfig({ ...config, randomizeQuestions: e.target.checked })}
+                                className="peer sr-only"
                             />
+                            <div className="w-5 h-5 rounded border-2 border-pit-blue/30 bg-white/60 peer-checked:bg-pit-blue peer-checked:border-pit-blue transition-all" />
+                            <svg className="absolute w-3 h-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                        </div>
+                        <span className="text-sm font-semibold text-pit-grey group-hover:text-pit-blue transition-colors">Randomize question order for students</span>
+                    </label>
 
-                            {/* Drag overlay */}
-                            {draggingOver === qIndex && (
-                                <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-pit-blue/10 border-2 border-dashed border-pit-blue/40 pointer-events-none">
-                                    <span className="text-pit-blue font-semibold text-sm">Drop image here</span>
+                    <button
+                        onClick={() => {
+                            const shuffled = [...questions].sort(() => Math.random() - 0.5);
+                            setQuestions(shuffled);
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-pit-blue bg-white/60 hover:bg-white border border-pit-blue/20 rounded-lg shadow-sm transition-all"
+                    >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        Shuffle Questions
+                    </button>
+                </div>
+            </div>
+
+            {/* Questions */}
+            <main className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 py-4 space-y-6">
+                <Reorder.Group axis="y" values={questions} onReorder={setQuestions} className="space-y-6">
+                    {questions.map((q, qIndex) => (
+                        <Reorder.Item
+                            key={q.id}
+                            value={q}
+                            className="p-6 rounded-2xl border border-white/40 bg-white/40 backdrop-blur-xl shadow-sm hover:shadow-md transition-shadow cursor-default"
+                            style={{ y: 0 }}
+                        >
+                            {/* Header row */}
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="cursor-grab active:cursor-grabbing p-1.5 -ml-1.5 rounded-lg hover:bg-pit-blue/10 text-pit-blue/40 hover:text-pit-blue transition-colors" title="Drag to reorder">
+                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 8h16M4 16h16" />
+                                        </svg>
+                                    </div>
+                                    <span className="w-8 h-8 rounded-full bg-pit-blue text-white text-sm font-bold flex items-center justify-center">
+                                        {qIndex + 1}
+                                    </span>
+                                    <select
+                                        value={q.type}
+                                        onChange={(e) => changeType(qIndex, e.target.value as QuestionType)}
+                                        className="text-xs font-semibold uppercase tracking-wider px-3 py-1.5 rounded-full border border-pit-blue/20 bg-white/80 text-pit-blue focus:outline-none focus:ring-2 focus:ring-pit-blue/30"
+                                    >
+                                        {(Object.keys(typeLabels) as QuestionType[]).map((t) => (
+                                            <option key={t} value={t}>{typeLabels[t]}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <button
+                                    onClick={() => setConfirmDelete(qIndex)}
+                                    className="p-2 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"
+                                    title="Delete question"
+                                >
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
+                            </div>
+
+                            {/* Prompt + image drop zone */}
+                            <div
+                                className={`relative rounded-xl transition-all ${draggingOver === qIndex
+                                    ? 'ring-2 ring-pit-blue ring-offset-2 bg-pit-blue/5'
+                                    : ''
+                                    }`}
+                                onDragOver={(e) => {
+                                    e.preventDefault();
+                                    setDraggingOver(qIndex);
+                                }}
+                                onDragLeave={() => setDraggingOver(null)}
+                                onDrop={(e) => {
+                                    e.preventDefault();
+                                    setDraggingOver(null);
+                                    const file = e.dataTransfer.files[0];
+                                    if (file) handleImageFile(qIndex, file);
+                                }}
+                            >
+                                <textarea
+                                    value={q.prompt}
+                                    onChange={(e) => updatePrompt(qIndex, e.target.value)}
+                                    placeholder="Enter question prompt…"
+                                    rows={3}
+                                    className="w-full px-4 py-3 rounded-xl border border-white/40 bg-white/60 text-pit-grey placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-pit-blue/30 font-body text-sm resize-y"
+                                />
+
+                                {/* Drag overlay */}
+                                {draggingOver === qIndex && (
+                                    <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-pit-blue/10 border-2 border-dashed border-pit-blue/40 pointer-events-none">
+                                        <span className="text-pit-blue font-semibold text-sm">Drop image here</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Image preview or add button */}
+                            {q.imageUrl ? (
+                                <div className="mt-3 relative inline-block group">
+                                    <img
+                                        src={q.imageUrl}
+                                        alt="Question attachment"
+                                        className="max-h-48 rounded-xl border border-white/40 shadow-sm"
+                                    />
+                                    <button
+                                        onClick={() => removeImage(qIndex)}
+                                        className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                                        title="Remove image"
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="mt-2 flex items-center gap-2">
+                                    <button
+                                        onClick={() => fileInputRefs.current[qIndex]?.click()}
+                                        disabled={uploadingImage === qIndex}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-pit-grey-light hover:text-pit-blue border border-white/40 hover:border-pit-blue/30 rounded-lg transition-all disabled:opacity-50"
+                                    >
+                                        {uploadingImage === qIndex ? (
+                                            <span className="animate-pulse">Processing…</span>
+                                        ) : (
+                                            <>
+                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                </svg>
+                                                Add image
+                                            </>
+                                        )}
+                                    </button>
+                                    <span className="text-[10px] text-gray-400">or drag &amp; drop onto the prompt</span>
+                                    <input
+                                        ref={(el) => { fileInputRefs.current[qIndex] = el; }}
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) handleImageFile(qIndex, file);
+                                            e.target.value = '';
+                                        }}
+                                    />
                                 </div>
                             )}
-                        </div>
 
-                        {/* Image preview or add button */}
-                        {q.imageUrl ? (
-                            <div className="mt-3 relative inline-block group">
-                                <img
-                                    src={q.imageUrl}
-                                    alt="Question attachment"
-                                    className="max-h-48 rounded-xl border border-white/40 shadow-sm"
-                                />
-                                <button
-                                    onClick={() => removeImage(qIndex)}
-                                    className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                                    title="Remove image"
-                                >
-                                    ×
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="mt-2 flex items-center gap-2">
-                                <button
-                                    onClick={() => fileInputRefs.current[qIndex]?.click()}
-                                    disabled={uploadingImage === qIndex}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-pit-grey-light hover:text-pit-blue border border-white/40 hover:border-pit-blue/30 rounded-lg transition-all disabled:opacity-50"
-                                >
-                                    {uploadingImage === qIndex ? (
-                                        <span className="animate-pulse">Processing…</span>
-                                    ) : (
-                                        <>
-                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                            </svg>
-                                            Add image
-                                        </>
-                                    )}
-                                </button>
-                                <span className="text-[10px] text-gray-400">or drag &amp; drop onto the prompt</span>
-                                <input
-                                    ref={(el) => { fileInputRefs.current[qIndex] = el; }}
-                                    type="file"
-                                    accept="image/*"
-                                    className="hidden"
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0];
-                                        if (file) handleImageFile(qIndex, file);
-                                        e.target.value = '';
-                                    }}
-                                />
-                            </div>
-                        )}
-
-                        {/* Options for MC and MA */}
-                        {q.type !== 'essay' && (
-                            <div className="mt-4 space-y-2">
-                                <p className="text-xs font-semibold text-pit-grey-light uppercase tracking-wider mb-2">
-                                    {q.type === 'multiple-choice' ? 'Select the correct answer:' : 'Select all correct answers:'}
-                                </p>
-                                {(q as MultipleChoiceQuestion | MultipleAnswerQuestion).options.map((opt, oIndex) => (
-                                    <div key={oIndex} className="flex items-center gap-2">
-                                        {/* Correct indicator */}
-                                        {q.type === 'multiple-choice' ? (
-                                            <input
-                                                type="radio"
-                                                name={`correct-${q.id}`}
-                                                checked={(q as MultipleChoiceQuestion).correctIndex === oIndex}
-                                                onChange={() => setCorrectIndex(qIndex, oIndex)}
-                                                className="w-4 h-4 accent-[#3161AC] shrink-0"
-                                            />
-                                        ) : (
-                                            <input
-                                                type="checkbox"
-                                                checked={(q as MultipleAnswerQuestion).correctIndices.includes(oIndex)}
-                                                onChange={() => toggleCorrectIndex(qIndex, oIndex)}
-                                                className="w-4 h-4 accent-[#F7CC07] shrink-0 rounded"
-                                            />
-                                        )}
-
-                                        {/* Option letter */}
-                                        <span className="w-6 h-6 rounded-md bg-pit-blue/10 text-pit-blue text-xs font-bold flex items-center justify-center shrink-0">
-                                            {String.fromCharCode(65 + oIndex)}
-                                        </span>
-
-                                        {/* Option text */}
-                                        <input
-                                            type="text"
-                                            value={opt}
-                                            onChange={(e) => updateOption(qIndex, oIndex, e.target.value)}
-                                            placeholder={`Option ${String.fromCharCode(65 + oIndex)}…`}
-                                            className="flex-1 px-3 py-2 rounded-lg border border-white/40 bg-white/60 text-pit-grey text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-pit-blue/30"
-                                        />
-
-                                        {/* Delete option */}
-                                        {(q as MultipleChoiceQuestion | MultipleAnswerQuestion).options.length > 2 && (
+                            {/* Options for MC and MA */}
+                            {q.type !== 'essay' && (
+                                <div className="mt-8 space-y-4">
+                                    <div className="flex items-center justify-between border-t border-black/5 pt-4">
+                                        <p className="text-xs font-semibold text-pit-grey-light uppercase tracking-wider">
+                                            {q.type === 'multiple-choice' ? 'Select the correct answer:' : 'Select all correct answers:'}
+                                        </p>
+                                        <div className="flex items-center gap-4">
+                                            <label className="flex items-center gap-2 cursor-pointer group">
+                                                <div className="relative flex items-center justify-center">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={!!(q as MultipleChoiceQuestion).randomizeOptions}
+                                                        onChange={() => toggleRandomizeOptions(qIndex)}
+                                                        className="peer sr-only"
+                                                    />
+                                                    <div className="w-4 h-4 rounded border-2 border-pit-blue/30 bg-white/60 peer-checked:bg-pit-blue peer-checked:border-pit-blue transition-all" />
+                                                    <svg className="absolute w-2.5 h-2.5 text-white opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                                    </svg>
+                                                </div>
+                                                <span className="text-xs font-semibold text-pit-grey-light group-hover:text-pit-blue transition-colors">Randomize order</span>
+                                            </label>
                                             <button
-                                                onClick={() => deleteOption(qIndex, oIndex)}
-                                                className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all shrink-0"
-                                                title="Remove option"
+                                                onClick={() => shuffleOptions(qIndex)}
+                                                className="text-xs font-semibold text-pit-blue/70 hover:text-pit-blue flex items-center gap-1 transition-colors"
                                             >
-                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                                 </svg>
+                                                Shuffle
                                             </button>
-                                        )}
+                                        </div>
                                     </div>
-                                ))}
 
-                                {/* Add option */}
-                                <button
-                                    onClick={() => addOption(qIndex)}
-                                    className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-pit-blue hover:text-pit-blue/80 transition-all"
-                                >
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                                    </svg>
-                                    Add option
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                ))}
+                                    <Reorder.Group axis="y" values={(q as MultipleChoiceQuestion | MultipleAnswerQuestion).options} onReorder={(opts) => reorderOptions(qIndex, opts)} className="space-y-2">
+                                        {(q as MultipleChoiceQuestion | MultipleAnswerQuestion).options.map((opt, oIndex) => (
+                                            <Reorder.Item key={`${q.id}-opt-${opt}-${oIndex}`} value={opt} className="flex items-center gap-2">
+                                                <div className="cursor-grab active:cursor-grabbing p-1 text-pit-blue/30 hover:text-pit-blue transition-colors">
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 8h16M4 16h16" />
+                                                    </svg>
+                                                </div>
+                                                {/* Correct indicator */}
+                                                {q.type === 'multiple-choice' ? (
+                                                    <input
+                                                        type="radio"
+                                                        name={`correct-${q.id}`}
+                                                        checked={(q as MultipleChoiceQuestion).correctIndex === oIndex}
+                                                        onChange={() => setCorrectIndex(qIndex, oIndex)}
+                                                        className="w-4 h-4 accent-[#3161AC] shrink-0"
+                                                    />
+                                                ) : (
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={(q as MultipleAnswerQuestion).correctIndices.includes(oIndex)}
+                                                        onChange={() => toggleCorrectIndex(qIndex, oIndex)}
+                                                        className="w-4 h-4 accent-[#F7CC07] shrink-0 rounded"
+                                                    />
+                                                )}
+
+                                                {/* Option letter */}
+                                                <span className="w-6 h-6 rounded-md bg-pit-blue/10 text-pit-blue text-xs font-bold flex items-center justify-center shrink-0">
+                                                    {String.fromCharCode(65 + oIndex)}
+                                                </span>
+
+                                                {/* Option text */}
+                                                <input
+                                                    type="text"
+                                                    value={opt}
+                                                    onChange={(e) => updateOption(qIndex, oIndex, e.target.value)}
+                                                    placeholder={`Option ${String.fromCharCode(65 + oIndex)}…`}
+                                                    className="flex-1 px-3 py-2 rounded-lg border border-white/40 bg-white/60 text-pit-grey text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-pit-blue/30"
+                                                />
+
+                                                {/* Delete option */}
+                                                {(q as MultipleChoiceQuestion | MultipleAnswerQuestion).options.length > 2 && (
+                                                    <button
+                                                        onClick={() => deleteOption(qIndex, oIndex)}
+                                                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all shrink-0"
+                                                        title="Remove option"
+                                                    >
+                                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                                        </svg>
+                                                    </button>
+                                                )}
+                                            </Reorder.Item>
+                                        ))}
+                                    </Reorder.Group>
+
+                                    {/* Add option */}
+                                    <button
+                                        onClick={() => addOption(qIndex)}
+                                        className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-pit-blue hover:text-pit-blue/80 transition-all"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                                        </svg>
+                                        Add option
+                                    </button>
+                                </div>
+                            )}
+                        </Reorder.Item>
+                    ))}
+
+                </Reorder.Group>
 
                 {/* Add question */}
                 <button

@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { loadQuestions, type Question, type MultipleAnswerQuestion } from '../data/questionsData';
+import { loadQuestions, type Question, type MultipleChoiceQuestion, type MultipleAnswerQuestion, type TestDataPayload } from '../data/questionsData';
 import { sendResults } from '../services/emailService';
 
 type Answers = Record<number, string | string[]>;
 
 type SubmitState = 'idle' | 'sending' | 'success' | 'error';
 
-export default function TestPage({ code, initialQuestions }: { code: string; initialQuestions?: Question[] | null }) {
+export default function TestPage({ code, initialPayload }: { code: string; initialPayload?: TestDataPayload | null }) {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [answers, setAnswers] = useState<Answers>({});
@@ -18,14 +18,30 @@ export default function TestPage({ code, initialQuestions }: { code: string; ini
     const [loadError, setLoadError] = useState(false);
     const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
+    const processPayload = (payload: TestDataPayload) => {
+        let processed = [...payload.questions];
+        if (payload.settings?.randomizeQuestions) {
+            processed.sort(() => Math.random() - 0.5);
+        }
+
+        processed = processed.map(q => {
+            if (q.type !== 'essay' && (q as MultipleChoiceQuestion | MultipleAnswerQuestion).randomizeOptions) {
+                const qWithOpts = { ...q } as MultipleChoiceQuestion | MultipleAnswerQuestion;
+                qWithOpts.options = [...qWithOpts.options].sort(() => Math.random() - 0.5);
+                return qWithOpts;
+            }
+            return q;
+        });
+
+        setQuestions(processed);
+        setLoading(false);
+    };
+
     const doLoad = () => {
         setLoading(true);
         setLoadError(false);
         loadQuestions(code)
-            .then((q) => {
-                setQuestions(q);
-                setLoading(false);
-            })
+            .then(processPayload)
             .catch(() => {
                 setLoadError(true);
                 setLoading(false);
@@ -33,13 +49,12 @@ export default function TestPage({ code, initialQuestions }: { code: string; ini
     };
 
     useEffect(() => {
-        if (initialQuestions) {
-            setQuestions(initialQuestions);
-            setLoading(false);
+        if (initialPayload) {
+            processPayload(initialPayload);
         } else {
             doLoad();
         }
-    }, [initialQuestions, code]);
+    }, [initialPayload, code]);
 
     const handleSelect = (questionId: number, value: string) => {
         setAnswers((prev) => ({ ...prev, [questionId]: value }));

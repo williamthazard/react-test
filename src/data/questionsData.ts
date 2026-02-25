@@ -6,6 +6,7 @@ export type MultipleChoiceQuestion = {
     imageUrl?: string;
     options: string[];
     correctIndex: number;
+    randomizeOptions?: boolean;
 };
 
 export type MultipleAnswerQuestion = {
@@ -15,6 +16,7 @@ export type MultipleAnswerQuestion = {
     imageUrl?: string;
     options: string[];
     correctIndices: number[];
+    randomizeOptions?: boolean;
 };
 
 export type EssayQuestion = {
@@ -25,6 +27,15 @@ export type EssayQuestion = {
 };
 
 export type Question = MultipleChoiceQuestion | MultipleAnswerQuestion | EssayQuestion;
+
+export type TestConfig = {
+    randomizeQuestions?: boolean;
+};
+
+export type TestDataPayload = {
+    settings: TestConfig;
+    questions: Question[];
+};
 
 /* ── Default generated questions ── */
 
@@ -114,31 +125,43 @@ async function executeWithRetry(body: string): Promise<string | null> {
     return null;
 }
 
-export async function loadQuestions(code: string): Promise<Question[]> {
+export async function loadQuestions(code: string): Promise<TestDataPayload> {
     const responseBody = await executeWithRetry(
         JSON.stringify({ code, action: 'load-questions' }),
     );
+
+    // Default fallback state
+    const fallback: TestDataPayload = { settings: {}, questions: defaultQuestions };
+
     if (responseBody) {
         try {
             const parsed = JSON.parse(responseBody);
             if (parsed.ok && parsed.questions) {
-                return parsed.questions as Question[];
+                // Check if the saved data is the new object format { settings, questions }
+                // or the old raw array format Question[]
+                if (Array.isArray(parsed.questions)) {
+                    return { settings: {}, questions: parsed.questions as Question[] };
+                } else if (parsed.questions.questions) {
+                    return parsed.questions as TestDataPayload;
+                }
             }
-            // Server returned ok but no questions saved yet — use defaults
+            // Server returned ok but no questions saved yet
             if (parsed.ok && !parsed.questions) {
-                return defaultQuestions;
+                return fallback;
             }
         } catch {
             console.warn('Failed to parse load-questions response');
         }
     }
-    // All retries exhausted — throw so the UI can show a retry button
+    // All retries exhausted
     throw new Error('Failed to load questions — server unreachable');
 }
 
-export async function saveQuestions(code: string, questionsToSave: Question[]): Promise<void> {
+export async function saveQuestions(code: string, payload: TestDataPayload): Promise<void> {
     const responseBody = await executeWithRetry(
-        JSON.stringify({ code, action: 'save-questions', questions: questionsToSave }),
+        // Pass the entire { settings, questions } payload directly into the 'questions' field 
+        // expected by the backend to avoid needing to redeploy the function
+        JSON.stringify({ code, action: 'save-questions', questions: payload }),
     );
     if (responseBody) {
         const parsed = JSON.parse(responseBody);
