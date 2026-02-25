@@ -103,13 +103,26 @@ export default async ({ req, res, log, error }) => {
         }
 
         // ── Default: verify code ──
-        if (isEditor) {
-            log('Valid: editor');
-            return res.json({ ok: true, valid: true, role: 'editor' });
-        }
-        if (isStudent) {
-            log('Valid: student');
-            return res.json({ ok: true, valid: true, role: 'student' });
+        if (isEditor || isStudent) {
+            const role = isEditor ? 'editor' : 'student';
+            log(`Valid: ${role}`);
+
+            // Pre-load questions alongside verify to avoid a separate cold-start call
+            let questions = null;
+            if (process.env.APPWRITE_API_KEY) {
+                try {
+                    const { baseUrl, headers } = getDbConfig(log);
+                    const doc = await listDocs(baseUrl, headers, log);
+                    if (doc && doc.data) {
+                        questions = JSON.parse(doc.data);
+                        log('Pre-loaded questions with verify');
+                    }
+                } catch (e) {
+                    log(`Pre-load failed (non-fatal): ${e.message}`);
+                }
+            }
+
+            return res.json({ ok: true, valid: true, role, questions });
         }
         log('Invalid code');
         return res.json({ ok: true, valid: false });

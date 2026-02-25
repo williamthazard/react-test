@@ -20,7 +20,7 @@ function createBlankQuestion(id: number, qType: QuestionType): Question {
     return { id, type: 'multiple-choice', prompt: '', options: ['', ''], correctIndex: 0 };
 }
 
-export default function TestEditor({ code }: { code: string }) {
+export default function TestEditor({ code, initialQuestions }: { code: string; initialQuestions?: Question[] | null }) {
     const [questions, setQuestions] = useState<Question[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -98,7 +98,14 @@ export default function TestEditor({ code }: { code: string }) {
             });
     };
 
-    useEffect(() => { doLoad(); }, []);
+    useEffect(() => {
+        if (initialQuestions) {
+            setQuestions(initialQuestions);
+            setLoading(false);
+        } else {
+            doLoad();
+        }
+    }, [initialQuestions, code]);
 
     const showToast = (type: 'success' | 'error', message: string) => {
         setToast({ type, message });

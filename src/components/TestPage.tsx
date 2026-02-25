@@ -6,7 +6,7 @@ type Answers = Record<number, string | string[]>;
 
 type SubmitState = 'idle' | 'sending' | 'success' | 'error';
 
-export default function TestPage({ code }: { code: string }) {
+export default function TestPage({ code, initialQuestions }: { code: string; initialQuestions?: Question[] | null }) {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [answers, setAnswers] = useState<Answers>({});
@@ -32,7 +32,14 @@ export default function TestPage({ code }: { code: string }) {
             });
     };
 
-    useEffect(() => { doLoad(); }, []);
+    useEffect(() => {
+        if (initialQuestions) {
+            setQuestions(initialQuestions);
+            setLoading(false);
+        } else {
+            doLoad();
+        }
+    }, [initialQuestions, code]);
 
     const handleSelect = (questionId: number, value: string) => {
         setAnswers((prev) => ({ ...prev, [questionId]: value }));
