@@ -15,14 +15,24 @@ export default function TestPage({ code }: { code: string }) {
     const [nameError, setNameError] = useState(false);
     const [questions, setQuestions] = useState<Question[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
-    useEffect(() => {
-        loadQuestions(code).then((q) => {
-            setQuestions(q);
-            setLoading(false);
-        });
-    }, []);
+    const doLoad = () => {
+        setLoading(true);
+        setLoadError(false);
+        loadQuestions(code)
+            .then((q) => {
+                setQuestions(q);
+                setLoading(false);
+            })
+            .catch(() => {
+                setLoadError(true);
+                setLoading(false);
+            });
+    };
+
+    useEffect(() => { doLoad(); }, []);
 
     const handleSelect = (questionId: number, value: string) => {
         setAnswers((prev) => ({ ...prev, [questionId]: value }));
@@ -76,6 +86,20 @@ export default function TestPage({ code }: { code: string }) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#e8edf5] via-[#dde4f0] to-[#d0d9eb]">
                 <div className="text-pit-blue text-lg font-semibold animate-pulse">Loading questions…</div>
+            </div>
+        );
+    }
+
+    if (loadError) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#e8edf5] via-[#dde4f0] to-[#d0d9eb]">
+                <div className="text-center p-8 rounded-2xl bg-white/40 backdrop-blur-xl border border-white/40 shadow-xl max-w-md">
+                    <p className="text-pit-grey font-semibold mb-3">Failed to load questions</p>
+                    <p className="text-sm text-gray-500 mb-5">The server may be warming up. Please try again.</p>
+                    <button onClick={doLoad} className="px-6 py-2.5 rounded-xl bg-pit-blue text-white font-semibold shadow-md hover:shadow-lg transition-all">
+                        Retry
+                    </button>
+                </div>
             </div>
         );
     }

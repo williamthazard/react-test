@@ -89,8 +89,8 @@ export const questions = defaultQuestions;
 import { ExecutionMethod } from 'appwrite';
 import { functions, VERIFY_FUNCTION_ID } from '../services/appwrite';
 
-const MAX_RETRIES = 3;
-const RETRY_DELAY_MS = 2000;
+const MAX_RETRIES = 5;
+const RETRY_DELAY_MS = 3000;
 
 async function executeWithRetry(body: string): Promise<string | null> {
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -124,11 +124,16 @@ export async function loadQuestions(code: string): Promise<Question[]> {
             if (parsed.ok && parsed.questions) {
                 return parsed.questions as Question[];
             }
+            // Server returned ok but no questions saved yet — use defaults
+            if (parsed.ok && !parsed.questions) {
+                return defaultQuestions;
+            }
         } catch {
             console.warn('Failed to parse load-questions response');
         }
     }
-    return defaultQuestions;
+    // All retries exhausted — throw so the UI can show a retry button
+    throw new Error('Failed to load questions — server unreachable');
 }
 
 export async function saveQuestions(code: string, questionsToSave: Question[]): Promise<void> {

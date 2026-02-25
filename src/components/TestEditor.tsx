@@ -27,6 +27,7 @@ export default function TestEditor({ code }: { code: string }) {
     const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [confirmReset, setConfirmReset] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+    const [loadError, setLoadError] = useState(false);
     const [draggingOver, setDraggingOver] = useState<number | null>(null);
     const [uploadingImage, setUploadingImage] = useState<number | null>(null);
     const fileInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
@@ -83,12 +84,21 @@ export default function TestEditor({ code }: { code: string }) {
         updateQuestion(qIndex, { ...questions[qIndex], imageUrl: undefined });
     };
 
-    useEffect(() => {
-        loadQuestions(code).then((q) => {
-            setQuestions(q);
-            setLoading(false);
-        });
-    }, []);
+    const doLoad = () => {
+        setLoading(true);
+        setLoadError(false);
+        loadQuestions(code)
+            .then((q) => {
+                setQuestions(q);
+                setLoading(false);
+            })
+            .catch(() => {
+                setLoadError(true);
+                setLoading(false);
+            });
+    };
+
+    useEffect(() => { doLoad(); }, []);
 
     const showToast = (type: 'success' | 'error', message: string) => {
         setToast({ type, message });
@@ -197,6 +207,20 @@ export default function TestEditor({ code }: { code: string }) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#e8edf5] via-[#dde4f0] to-[#d0d9eb]">
                 <div className="text-pit-blue text-lg font-semibold animate-pulse">Loading editor…</div>
+            </div>
+        );
+    }
+
+    if (loadError) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#e8edf5] via-[#dde4f0] to-[#d0d9eb]">
+                <div className="text-center p-8 rounded-2xl bg-white/40 backdrop-blur-xl border border-white/40 shadow-xl max-w-md">
+                    <p className="text-pit-grey font-semibold mb-3">Failed to load questions</p>
+                    <p className="text-sm text-gray-500 mb-5">The server may be warming up. Please try again.</p>
+                    <button onClick={doLoad} className="px-6 py-2.5 rounded-xl bg-pit-blue text-white font-semibold shadow-md hover:shadow-lg transition-all">
+                        Retry
+                    </button>
+                </div>
             </div>
         );
     }
