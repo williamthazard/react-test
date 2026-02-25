@@ -86,39 +86,58 @@ export const questions = defaultQuestions;
 import { ExecutionMethod } from 'appwrite';
 import { functions, VERIFY_FUNCTION_ID } from '../services/appwrite';
 
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 2000;
+
+async function executeWithRetry(body: string): Promise<string | null> {
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            const result = await functions.createExecution(
+                VERIFY_FUNCTION_ID,
+                body,
+                false,
+                undefined,
+                ExecutionMethod.POST,
+            );
+            return result.responseBody || null;
+        } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            console.warn(`Function call attempt ${attempt}/${MAX_RETRIES} failed: ${msg}`);
+            if (attempt < MAX_RETRIES) {
+                await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+            }
+        }
+    }
+    return null;
+}
+
 export async function loadQuestions(code: string): Promise<Question[]> {
-    try {
-        const result = await functions.createExecution(
-            VERIFY_FUNCTION_ID,
-            JSON.stringify({ code, action: 'load-questions' }),
-            false,
-            undefined,
-            ExecutionMethod.POST,
-        );
-        if (result.responseBody) {
-            const parsed = JSON.parse(result.responseBody);
+    const responseBody = await executeWithRetry(
+        JSON.stringify({ code, action: 'load-questions' }),
+    );
+    if (responseBody) {
+        try {
+            const parsed = JSON.parse(responseBody);
             if (parsed.ok && parsed.questions) {
                 return parsed.questions as Question[];
             }
+        } catch {
+            console.warn('Failed to parse load-questions response');
         }
-    } catch (e) {
-        console.warn('Failed to load questions from cloud, using defaults', e);
     }
     return defaultQuestions;
 }
 
 export async function saveQuestions(code: string, questionsToSave: Question[]): Promise<void> {
-    const result = await functions.createExecution(
-        VERIFY_FUNCTION_ID,
+    const responseBody = await executeWithRetry(
         JSON.stringify({ code, action: 'save-questions', questions: questionsToSave }),
-        false,
-        undefined,
-        ExecutionMethod.POST,
     );
-    if (result.responseBody) {
-        const parsed = JSON.parse(result.responseBody);
+    if (responseBody) {
+        const parsed = JSON.parse(responseBody);
         if (!parsed.ok) {
             throw new Error(parsed.error || 'Failed to save questions');
         }
+    } else {
+        throw new Error('Failed to save — all retries exhausted');
     }
 }
