@@ -1,21 +1,31 @@
-const ACCESS_CODE_KEY = 'ACCESS_CODE';
-const EDITOR_CODE_KEY = 'EDITOR_CODE';
 const DATABASE_ID = 'test-app-db';
 const COLLECTION_ID = 'questions';
+const ENDPOINT = 'https://nyc.cloud.appwrite.io/v1';
 
-async function getDbHeaders() {
+function getDbConfig(log) {
     const apiKey = process.env.APPWRITE_API_KEY;
-    const endpoint = process.env.APPWRITE_FUNCTION_API_ENDPOINT || 'https://nyc.cloud.appwrite.io/v1';
     const projectId = process.env.APPWRITE_FUNCTION_PROJECT_ID;
-    return {
-        endpoint,
-        headers: {
-            'Content-Type': 'application/json',
-            'X-Appwrite-Project': projectId,
-            'X-Appwrite-Key': apiKey,
-        },
-        baseUrl: `${endpoint}/databases/${DATABASE_ID}/collections/${COLLECTION_ID}/documents`,
+    const baseUrl = `${ENDPOINT}/databases/${DATABASE_ID}/collections/${COLLECTION_ID}/documents`;
+    const headers = {
+        'Content-Type': 'application/json',
+        'X-Appwrite-Project': projectId,
+        'X-Appwrite-Key': apiKey,
     };
+    log(`Config: projectId=${projectId}, apiKey=${apiKey ? 'set' : 'MISSING'}`);
+    return { baseUrl, headers };
+}
+
+async function listDocs(baseUrl, headers, log) {
+    const limitQ = JSON.stringify({ method: 'limit', values: [1] });
+    const url = `${baseUrl}?queries[]=${encodeURIComponent(limitQ)}`;
+    log(`LIST: ${url}`);
+    const resp = await fetch(url, { headers });
+    const text = await resp.text();
+    log(`LIST response ${resp.status}: ${text.substring(0, 200)}`);
+    if (!resp.ok) return null;
+    const data = JSON.parse(text);
+    if (data.documents && data.documents.length > 0) return data.documents[0];
+    return null;
 }
 
 export default async ({ req, res, log, error }) => {
@@ -24,132 +34,87 @@ export default async ({ req, res, log, error }) => {
     }
 
     try {
-        let body;
-        if (typeof req.body === 'string') {
-            body = JSON.parse(req.body);
-        } else {
-            body = req.body;
-        }
-
+        const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const { code, action, questions } = body;
 
-        if (!code) {
-            return res.json({ ok: false, valid: false, error: 'No code provided' }, 400);
-        }
+        if (!code) return res.json({ ok: false, valid: false, error: 'No code provided' }, 400);
 
-        const accessCode = process.env[ACCESS_CODE_KEY];
-        const editorCode = process.env[EDITOR_CODE_KEY];
-
+        const accessCode = process.env.ACCESS_CODE;
+        const editorCode = process.env.EDITOR_CODE;
         if (!accessCode) {
-            error('ACCESS_CODE environment variable is not set');
-            return res.json({ ok: false, error: 'Server configuration error' }, 500);
+            error('ACCESS_CODE not set');
+            return res.json({ ok: false, error: 'Server config error' }, 500);
         }
 
         const trimmedCode = code.trim().toUpperCase();
         const isEditor = editorCode && trimmedCode === editorCode.trim().toUpperCase();
         const isStudent = trimmedCode === accessCode.trim().toUpperCase();
-        const isAuthorized = isEditor || isStudent;
 
-        // ─── Load questions (requires any valid code) ───
+        // ── Load questions ──
         if (action === 'load-questions') {
-            if (!isAuthorized) {
-                return res.json({ ok: false, error: 'Unauthorized' }, 403);
-            }
+            if (!isEditor && !isStudent) return res.json({ ok: false, error: 'Unauthorized' }, 403);
+            if (!process.env.APPWRITE_API_KEY) return res.json({ ok: true, questions: null });
 
-            const apiKey = process.env.APPWRITE_API_KEY;
-            if (!apiKey) {
-                error('APPWRITE_API_KEY not set');
-                return res.json({ ok: true, questions: null });
+            const { baseUrl, headers } = getDbConfig(log);
+            const doc = await listDocs(baseUrl, headers, log);
+            if (doc && doc.data) {
+                log('Returning saved questions');
+                return res.json({ ok: true, questions: JSON.parse(doc.data) });
             }
-
-            try {
-                const { baseUrl, headers } = await getDbHeaders();
-                const resp = await fetch(`${baseUrl}?queries[]=limit(1)`, { headers });
-                if (resp.ok) {
-                    const data = await resp.json();
-                    if (data.documents && data.documents.length > 0) {
-                        return res.json({ ok: true, questions: JSON.parse(data.documents[0].data) });
-                    }
-                }
-            } catch (e) {
-                log(`Load questions error: ${e.message}`);
-            }
+            log('No saved questions found');
             return res.json({ ok: true, questions: null });
         }
 
-        // ─── Save questions (requires editor code) ───
+        // ── Save questions ──
         if (action === 'save-questions') {
-            if (!isEditor) {
-                log('Save attempt denied: not an editor');
-                return res.json({ ok: false, error: 'Unauthorized' }, 403);
-            }
-            if (!questions) {
-                return res.json({ ok: false, error: 'No questions provided' }, 400);
-            }
-
-            const apiKey = process.env.APPWRITE_API_KEY;
-            if (!apiKey) {
+            if (!isEditor) return res.json({ ok: false, error: 'Unauthorized' }, 403);
+            if (!questions) return res.json({ ok: false, error: 'No questions provided' }, 400);
+            if (!process.env.APPWRITE_API_KEY) {
                 error('APPWRITE_API_KEY not set');
-                return res.json({ ok: false, error: 'Server configuration error' }, 500);
+                return res.json({ ok: false, error: 'Server config error' }, 500);
             }
 
-            const { baseUrl, headers } = await getDbHeaders();
+            const { baseUrl, headers } = getDbConfig(log);
             const dataStr = JSON.stringify(questions);
+            const doc = await listDocs(baseUrl, headers, log);
 
-            // Check for existing document
-            const listResp = await fetch(`${baseUrl}?queries[]=limit(1)`, { headers });
-            let existingDocId = null;
-            if (listResp.ok) {
-                const listData = await listResp.json();
-                if (listData.documents && listData.documents.length > 0) {
-                    existingDocId = listData.documents[0].$id;
-                }
-            }
-
-            if (existingDocId) {
-                const updateResp = await fetch(`${baseUrl}/${existingDocId}`, {
+            if (doc) {
+                log(`Updating doc ${doc.$id}`);
+                const resp = await fetch(`${baseUrl}/${doc.$id}`, {
                     method: 'PATCH',
                     headers,
                     body: JSON.stringify({ data: { data: dataStr } }),
                 });
-                if (!updateResp.ok) {
-                    const errText = await updateResp.text();
-                    error(`Update failed (${updateResp.status}): ${errText}`);
-                    return res.json({ ok: false, error: 'Failed to save' }, 500);
-                }
-                log('Updated questions document');
+                const text = await resp.text();
+                log(`UPDATE ${resp.status}: ${text.substring(0, 200)}`);
+                if (!resp.ok) return res.json({ ok: false, error: 'Failed to save' }, 500);
             } else {
-                const createResp = await fetch(baseUrl, {
+                log('Creating new doc');
+                const resp = await fetch(baseUrl, {
                     method: 'POST',
                     headers,
                     body: JSON.stringify({ documentId: 'unique()', data: { data: dataStr } }),
                 });
-                if (!createResp.ok) {
-                    const errText = await createResp.text();
-                    error(`Create failed (${createResp.status}): ${errText}`);
-                    return res.json({ ok: false, error: 'Failed to save' }, 500);
-                }
-                log('Created questions document');
+                const text = await resp.text();
+                log(`CREATE ${resp.status}: ${text.substring(0, 200)}`);
+                if (!resp.ok) return res.json({ ok: false, error: 'Failed to save' }, 500);
             }
-
             return res.json({ ok: true, saved: true });
         }
 
-        // ─── Default: verify access code ───
+        // ── Default: verify code ──
         if (isEditor) {
-            log('Access code check: valid (editor)');
+            log('Valid: editor');
             return res.json({ ok: true, valid: true, role: 'editor' });
         }
-
         if (isStudent) {
-            log('Access code check: valid (student)');
+            log('Valid: student');
             return res.json({ ok: true, valid: true, role: 'student' });
         }
-
-        log('Access code check: invalid');
+        log('Invalid code');
         return res.json({ ok: true, valid: false });
     } catch (err) {
-        error(`Exception: ${err.message}\n${err.stack}`);
-        return res.json({ ok: false, error: 'Internal server error' }, 500);
+        error(`${err.message}\n${err.stack}`);
+        return res.json({ ok: false, error: 'Internal error' }, 500);
     }
 };

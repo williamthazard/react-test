@@ -7,6 +7,6 @@ const client = new Client()
 export const functions = new Functions(client);
 export const databases = new Databases(client);
 
-export const VERIFY_FUNCTION_ID = '699df29119e0c5e74963';
+export const VERIFY_FUNCTION_ID = 'verify-access-code';
 export const SEND_RESULTS_FUNCTION_ID = '699debf48829a77a155d';
 export const MANAGE_QUESTIONS_FUNCTION_ID = 'manage-questions';
