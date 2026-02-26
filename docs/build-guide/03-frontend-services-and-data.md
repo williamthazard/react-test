@@ -101,6 +101,36 @@ async function executeWithRetry(body: string): Promise<string | null> {
     return null;
 }
 
+```typescript
+export async function loadQuestions(code: string): Promise<TestDataPayload> {
+    const responseBody = await executeWithRetry(
+        JSON.stringify({ code, action: 'load-questions' }),
+    );
+
+    // Default fallback state
+    const fallback: TestDataPayload = { settings: {}, questions: defaultQuestions };
+
+    if (responseBody) {
+        try {
+            const parsed = JSON.parse(responseBody);
+            if (parsed.ok && parsed.questions) {
+                // Handle both older array formats and newer object payloads
+                if (Array.isArray(parsed.questions)) {
+                    return { settings: {}, questions: parsed.questions as Question[] };
+                } else if (parsed.questions.questions) {
+                    return parsed.questions as TestDataPayload;
+                }
+            }
+            if (parsed.ok && !parsed.questions) {
+                return fallback;
+            }
+        } catch {
+            console.warn('Failed to parse load-questions response');
+        }
+    }
+    throw new Error('Failed to load questions — server unreachable');
+}
+
 export async function saveQuestions(code: string, payload: TestDataPayload): Promise<void> {
     const responseBody = await executeWithRetry(
         // Pass the entire { settings, questions } payload directly into the 'questions' field 
@@ -113,8 +143,6 @@ export async function saveQuestions(code: string, payload: TestDataPayload): Pro
     if (!parsed.ok) throw new Error(parsed.error || 'Failed to save questions');
 }
 ```
-
-*Note: You do not see a `loadQuestions` function here because we implemented a massive performance optimization in Part 2. The questions are pre-loaded during authentication, skipping an extra cold-start round trip.*
 
 ## 3. Email Delivery Service
 
