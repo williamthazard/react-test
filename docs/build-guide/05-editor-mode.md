@@ -9,7 +9,27 @@ The editor leverages `framer-motion` for spring-physics drag-and-drop reordering
 ```tsx
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Reorder } from 'framer-motion';
-import { loadQuestions, saveQuestions, type Question, type TestDataPayload, type TestConfig } from '../data/questionsData';
+import { 
+    loadQuestions, 
+    saveQuestions, 
+    type Question, 
+    type MultipleChoiceQuestion, 
+    type MultipleAnswerQuestion, 
+    type TestDataPayload, 
+    type TestConfig 
+} from '../data/questionsData';
+
+type QuestionType = 'multiple-choice' | 'multiple-answer' | 'essay';
+
+function createBlankQuestion(id: number, qType: QuestionType): Question {
+    if (qType === 'essay') {
+        return { id, type: 'essay', prompt: '' };
+    }
+    if (qType === 'multiple-answer') {
+        return { id, type: 'multiple-answer', prompt: '', options: ['', ''], correctIndices: [0] };
+    }
+    return { id, type: 'multiple-choice', prompt: '', options: ['', ''], correctIndex: 0 };
+}
 
 export default function TestEditor({ code, initialPayload }: { code: string; initialPayload?: TestDataPayload | null }) {
     // 1. Core Data State
