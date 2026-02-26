@@ -7,17 +7,27 @@ The `TestEditor` is an interactive builder that enables teachers to create and m
 The editor leverages `framer-motion` for spring-physics drag-and-drop reordering logic. It receives the `initialPayload` structured data prop passed down from `App.tsx` (which originated from `AccessCodeWall`). If this exists, the editor skips the loading screen. 
 
 ```tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Reorder } from 'framer-motion';
 import { loadQuestions, saveQuestions, type Question, type TestDataPayload, type TestConfig } from '../data/questionsData';
 
 export default function TestEditor({ code, initialPayload }: { code: string; initialPayload?: TestDataPayload | null }) {
+    // 1. Core Data State
     const [questions, setQuestions] = useState<Question[]>([]);
     const [config, setConfig] = useState<TestConfig>({});
+    
+    // 2. Loading & Network State
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState(false);
+    const [saving, setSaving] = useState(false);
     
-    // ... Additional UI State (toasts, confirmations, drag-and-drop feedback, file inputs)
+    // 3. Ephemeral UI State
+    const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    const [confirmReset, setConfirmReset] = useState(false);
+    const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+    const [draggingOver, setDraggingOver] = useState<number | null>(null);
+    const [uploadingImage, setUploadingImage] = useState<number | null>(null);
+    const fileInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
     const doLoad = () => {
         setLoading(true);
