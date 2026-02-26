@@ -46,6 +46,9 @@ export default function TestEditor({ code, initialPayload }: { code: string; ini
     }, [initialPayload, code]);
 ```
 
+> **Component Structure Note:** 
+> The code snippets below for Image Compression, Drag-and-Drop, and Saving Changes are all handler functions. They should be placed **inside** the `TestEditor` component's body, just below the `useEffect` hook block and before the `return` statement.
+
 ## Image Compression and Storage
 
 A core feature of the editor is the ability to attach images to question stems. To maintain security and avoid configuring public storage buckets, images are compressed and converted to Base64 data URLs right in the browser, then saved directly inside the `Question` JSON object.
