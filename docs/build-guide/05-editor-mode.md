@@ -109,6 +109,106 @@ const changeType = (index: number, newType: QuestionType) => {
     }
     updateQuestion(index, converted);
 };
+
+const addQuestion = () => {
+    const maxId = questions.reduce((max, q) => Math.max(max, q.id), 0);
+    setQuestions((prev) => [...prev, createBlankQuestion(maxId + 1, 'multiple-choice')]);
+};
+
+const deleteQuestion = (index: number) => {
+    if (questions.length <= 1) return;
+    setQuestions((prev) => prev.filter((_, i) => i !== index));
+    setConfirmDelete(null);
+};
+
+// ── Option Handlers ──
+const updateOption = (qIndex: number, oIndex: number, value: string) => {
+    const q = questions[qIndex] as MultipleChoiceQuestion | MultipleAnswerQuestion;
+    const newOpts = [...q.options];
+    newOpts[oIndex] = value;
+    updateQuestion(qIndex, { ...q, options: newOpts });
+};
+
+const addOption = (qIndex: number) => {
+    const q = questions[qIndex] as MultipleChoiceQuestion | MultipleAnswerQuestion;
+    updateQuestion(qIndex, { ...q, options: [...q.options, ''] });
+};
+
+const deleteOption = (qIndex: number, oIndex: number) => {
+    const q = questions[qIndex] as MultipleChoiceQuestion | MultipleAnswerQuestion;
+    if (q.options.length <= 2) return;
+    const newOpts = q.options.filter((_, i) => i !== oIndex);
+    if (q.type === 'multiple-choice') {
+        const mc = q as MultipleChoiceQuestion;
+        let newCorrect = mc.correctIndex;
+        if (oIndex === newCorrect) newCorrect = 0;
+        else if (oIndex < newCorrect) newCorrect--;
+        updateQuestion(qIndex, { ...mc, options: newOpts, correctIndex: newCorrect });
+    } else {
+        const ma = q as MultipleAnswerQuestion;
+        const newCorrectIndices = ma.correctIndices
+            .filter((ci) => ci !== oIndex)
+            .map((ci) => (ci > oIndex ? ci - 1 : ci));
+        updateQuestion(qIndex, { ...ma, options: newOpts, correctIndices: newCorrectIndices.length ? newCorrectIndices : [0] });
+    }
+};
+
+const setCorrectIndex = (qIndex: number, oIndex: number) => {
+    const q = questions[qIndex] as MultipleChoiceQuestion;
+    updateQuestion(qIndex, { ...q, correctIndex: oIndex });
+};
+
+const toggleCorrectIndex = (qIndex: number, oIndex: number) => {
+    const q = questions[qIndex] as MultipleAnswerQuestion;
+    const has = q.correctIndices.includes(oIndex);
+    let newIndices: number[];
+    if (has) {
+        newIndices = q.correctIndices.filter((ci) => ci !== oIndex);
+        if (newIndices.length === 0) return;
+    } else {
+        newIndices = [...q.correctIndices, oIndex].sort((a, b) => a - b);
+    }
+    updateQuestion(qIndex, { ...q, correctIndices: newIndices });
+};
+
+const toggleRandomizeOptions = (qIndex: number) => {
+    const q = questions[qIndex] as MultipleChoiceQuestion | MultipleAnswerQuestion;
+    updateQuestion(qIndex, { ...q, randomizeOptions: !q.randomizeOptions });
+};
+
+const shuffleOptions = (qIndex: number) => {
+    const q = questions[qIndex] as MultipleChoiceQuestion | MultipleAnswerQuestion;
+    const originalOptions = [...q.options];
+    const shuffledOptions = [...q.options]
+        .map(value => ({ value, sort: Math.random() }))
+        .sort((a, b) => a.sort - b.sort)
+        .map(({ value }) => value);
+
+    if (q.type === 'multiple-choice') {
+        const correctStr = originalOptions[q.correctIndex];
+        const newIndex = shuffledOptions.indexOf(correctStr);
+        updateQuestion(qIndex, { ...q, options: shuffledOptions, correctIndex: newIndex > -1 ? newIndex : 0 });
+    } else {
+        const correctStrs = q.correctIndices.map(i => originalOptions[i]);
+        const newIndices = correctStrs.map(str => shuffledOptions.indexOf(str)).filter(i => i > -1).sort((a, b) => a - b);
+        updateQuestion(qIndex, { ...q, options: shuffledOptions, correctIndices: newIndices.length ? newIndices : [0] });
+    }
+};
+
+const reorderOptions = (qIndex: number, newOptions: string[]) => {
+    const q = questions[qIndex] as MultipleChoiceQuestion | MultipleAnswerQuestion;
+    const originalOptions = [...q.options];
+
+    if (q.type === 'multiple-choice') {
+        const correctStr = originalOptions[q.correctIndex];
+        const newIndex = newOptions.indexOf(correctStr);
+        updateQuestion(qIndex, { ...q, options: newOptions, correctIndex: newIndex > -1 ? newIndex : 0 });
+    } else {
+        const correctStrs = q.correctIndices.map(i => originalOptions[i]);
+        const newIndices = correctStrs.map(str => newOptions.indexOf(str)).filter(i => i > -1).sort((a, b) => a - b);
+        updateQuestion(qIndex, { ...q, options: newOptions, correctIndices: newIndices.length ? newIndices : [0] });
+    }
+};
 ```
 
 ## Image Compression and Storage
