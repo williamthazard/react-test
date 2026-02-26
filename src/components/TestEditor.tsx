@@ -14,13 +14,14 @@ import { Reorder } from 'framer-motion';
 type QuestionType = 'multiple-choice' | 'multiple-answer' | 'essay';
 
 function createBlankQuestion(id: number, qType: QuestionType): Question {
-    if (qType === 'essay') {
-        return { id, type: 'essay', prompt: '' };
+    switch (qType) {
+        case 'essay':
+            return { id, type: 'essay', prompt: '' };
+        case 'multiple-answer':
+            return { id, type: 'multiple-answer', prompt: '', options: ['', ''], correctIndices: [0] };
+        case 'multiple-choice':
+            return { id, type: 'multiple-choice', prompt: '', options: ['', ''], correctIndex: 0 };
     }
-    if (qType === 'multiple-answer') {
-        return { id, type: 'multiple-answer', prompt: '', options: ['', ''], correctIndices: [0] };
-    }
-    return { id, type: 'multiple-choice', prompt: '', options: ['', ''], correctIndex: 0 };
 }
 
 export default function TestEditor({ code, initialPayload }: { code: string; initialPayload?: TestDataPayload | null }) {
