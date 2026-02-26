@@ -35,8 +35,8 @@ npm install -D tailwindcss@3 postcss autoprefixer
 # Initialize Tailwind configuration
 npx tailwindcss init -p
 
-# Install Appwrite Web SDK
-npm install appwrite
+# Install Appwrite Web SDK and Framer Motion for Drag-and-Drop
+npm install appwrite framer-motion
 ```
 
 ### Configuring Tailwind CSS
