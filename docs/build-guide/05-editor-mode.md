@@ -59,6 +59,37 @@ export default function TestEditor({ code, initialPayload }: { code: string; ini
 > **Component Structure Note:** 
 > The code snippets below for Image Compression, Drag-and-Drop, and Saving Changes are all handler functions. They should be placed **inside** the `TestEditor` component's body, just below the `useEffect` hook block and before the `return` statement.
 
+## Helper Functions
+
+The editor relies on a small suite of functional helpers to dispatch ephemeral UI feedback and immutable state updates to the questions array.
+
+```tsx
+const showToast = (type: 'success' | 'error', message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3000);
+};
+
+const updateQuestion = (index: number, updated: Question) => {
+    setQuestions((prev) => prev.map((q, i) => (i === index ? updated : q)));
+};
+
+const updatePrompt = (index: number, prompt: string) => {
+    updateQuestion(index, { ...questions[index], prompt });
+};
+
+const changeType = (index: number, newType: QuestionType) => {
+    const q = questions[index];
+    if (q.type === newType) return;
+    const converted = createBlankQuestion(q.id, newType);
+    converted.prompt = q.prompt;
+    if (newType !== 'essay' && q.type !== 'essay') {
+        const opts = (q as MultipleChoiceQuestion | MultipleAnswerQuestion).options;
+        (converted as MultipleChoiceQuestion | MultipleAnswerQuestion).options = [...opts];
+    }
+    updateQuestion(index, converted);
+};
+```
+
 ## Image Compression and Storage
 
 A core feature of the editor is the ability to attach images to question stems. To maintain security and avoid configuring public storage buckets, images are compressed and converted to Base64 data URLs right in the browser, then saved directly inside the `Question` JSON object.
