@@ -7,13 +7,32 @@ The `TestEditor` is an interactive builder that enables teachers to create and m
 The editor leverages `framer-motion` for spring-physics drag-and-drop reordering logic. It receives the `initialPayload` structured data prop passed down from `App.tsx` (which originated from `AccessCodeWall`). If this exists, the editor skips the loading screen. 
 
 ```tsx
+import { useState, useEffect } from 'react';
 import { Reorder } from 'framer-motion';
+import { loadQuestions, saveQuestions, type Question, type TestDataPayload, type TestConfig } from '../data/questionsData';
 
 export default function TestEditor({ code, initialPayload }: { code: string; initialPayload?: TestDataPayload | null }) {
     const [questions, setQuestions] = useState<Question[]>([]);
     const [config, setConfig] = useState<TestConfig>({});
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     
-    // ... UI State (toasts, confirmations, drag-and-drop feedback)
+    // ... Additional UI State (toasts, confirmations, drag-and-drop feedback, file inputs)
+
+    const doLoad = () => {
+        setLoading(true);
+        setLoadError(false);
+        loadQuestions(code)
+            .then((payload) => {
+                setQuestions(payload.questions);
+                setConfig(payload.settings);
+                setLoading(false);
+            })
+            .catch(() => {
+                setLoadError(true);
+                setLoading(false);
+            });
+    };
 
     useEffect(() => {
         if (initialPayload) {
@@ -21,7 +40,8 @@ export default function TestEditor({ code, initialPayload }: { code: string; ini
             setConfig(initialPayload.settings);
             setLoading(false);
         } else {
-            // Fallback load code...
+            // Fallback load code if the component mounts without preloaded payload (e.g. forced refresh)
+            doLoad();
         }
     }, [initialPayload, code]);
 ```

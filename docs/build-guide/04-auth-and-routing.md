@@ -92,7 +92,7 @@ export default function AccessCodeWall({ onUnlock }: AccessCodeWallProps) {
                             value={code}
                             onChange={(e) => setCode(e.target.value.toUpperCase())}
                             placeholder="Enter Access Code"
-                            className="w-full px-5 py-4 rounded-xl bg-white/70 border border-white/60 text-pit-grey placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-pit-blue/30 transition-all font-mono tracking-wider text-center text-lg"
+                            className="w-full px-5 py-4 rounded-xl bg-white/70 border border-white/60 text-pit-grey placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#F7CC07]/50 focus:border-[#F7CC07]/50 transition-all font-mono tracking-wider text-center text-lg"
                             disabled={checking}
                             autoFocus
                         />
