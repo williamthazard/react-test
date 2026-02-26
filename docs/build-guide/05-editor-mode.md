@@ -316,6 +316,12 @@ const handleSave = async () => {
 With state tracking and handlers defined, the `TestEditor` finally returns the JSX component tree. The UI is wrapped in a `<Reorder.Group>` which maps over each question to attach the handlers we defined above:
 
 ```tsx
+    const typeLabels: Record<QuestionType, string> = {
+        'multiple-choice': 'Multiple Choice',
+        'multiple-answer': 'Multiple Answer',
+        essay: 'Essay',
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-[#1E3B70] via-[#2A5298] to-[#1E3B70]">
             <header className="sticky top-0 z-50 bg-[#1E3B70]/80 backdrop-blur-xl border-b border-white/10 shadow-sm">
