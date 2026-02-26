@@ -136,3 +136,44 @@ const handleSave = async () => {
     }
 };
 ```
+
+## Render Structure
+
+With state tracking and handlers defined, the `TestEditor` finally returns the JSX component tree. The UI is wrapped in a `<Reorder.Group>` which maps over each question to attach the handlers we defined above:
+
+```tsx
+    return (
+        <div className="min-h-screen">
+            {/* Header and Global Settings Controls */}
+            {/* ... */}
+            
+            <main>
+                <Reorder.Group axis="y" values={questions} onReorder={setQuestions}>
+                    {questions.map((q, qIndex) => (
+                        <Reorder.Item key={q.id} value={q}>
+                        
+                            {/* Question Drag Handle and Card UI */}
+                            {/* ... */}
+                            
+                            {/* The Drop Zone mapping to our handler */}
+                            <div 
+                                onDragOver={(e) => handleDragOver(e, qIndex)}
+                                onDragLeave={handleDragLeave}
+                                onDrop={(e) => handleDrop(e, qIndex)}
+                            >
+                                <textarea onChange={(e) => updatePrompt(qIndex, e.target.value)} />
+                                {/* Hidden file input triggered by "Add Image" button */}
+                                <input type="file" onChange={(e) => handleImageFile(qIndex, e.target.files[0])} />
+                            </div>
+                            
+                            {/* Multiple Choice Options / Reorder Group */}
+                            {/* ... */}
+                            
+                        </Reorder.Item>
+                    ))}
+                </Reorder.Group>
+            </main>
+        </div>
+    );
+}
+```
