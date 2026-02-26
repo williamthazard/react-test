@@ -27,7 +27,7 @@ function createBlankQuestion(id: number, qType: QuestionType): Question {
             return { id, type: 'essay', prompt: '' };
         case 'multiple-answer':
             return { id, type: 'multiple-answer', prompt: '', options: ['', ''], correctIndices: [0] };
-        case 'multiple-choice':
+        default:
             return { id, type: 'multiple-choice', prompt: '', options: ['', ''], correctIndex: 0 };
     }
 }
