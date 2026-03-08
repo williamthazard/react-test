@@ -406,9 +406,7 @@ With state tracking and handlers defined, the `TestEditor` finally returns the J
                                 className="peer sr-only"
                             />
                             <div className="w-5 h-5 rounded border-2 border-pit-blue/30 bg-white/60 peer-checked:bg-pit-blue peer-checked:border-pit-blue transition-all" />
-                            <svg className="absolute w-3 h-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
+                            <ion-icon name="checkmark-outline" className="absolute w-3 h-3 text-white opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" />
                         </div>
                         <span className="text-sm font-semibold text-pit-grey group-hover:text-pit-blue transition-colors">Randomize question order for students</span>
                     </label>
@@ -420,9 +418,7 @@ With state tracking and handlers defined, the `TestEditor` finally returns the J
                         }}
                         className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-pit-blue bg-white/60 hover:bg-white border border-pit-blue/20 rounded-lg shadow-sm transition-all"
                     >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
+                        <ion-icon name="shuffle-outline" className="w-4 h-4" />
                         Shuffle Questions
                     </button>
                 </div>
@@ -442,9 +438,7 @@ With state tracking and handlers defined, the `TestEditor` finally returns the J
                             <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-3">
                                     <div className="cursor-grab active:cursor-grabbing p-1.5 -ml-1.5 rounded-lg hover:bg-pit-blue/10 text-pit-blue/40 hover:text-pit-blue transition-colors" title="Drag to reorder">
-                                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 8h16M4 16h16" />
-                                        </svg>
+                                        <ion-icon name="reorder-two-outline" className="w-5 h-5" />
                                     </div>
                                     <span className="w-8 h-8 rounded-full bg-pit-blue text-white text-sm font-bold flex items-center justify-center">
                                         {qIndex + 1}
@@ -464,9 +458,7 @@ With state tracking and handlers defined, the `TestEditor` finally returns the J
                                     className="p-2 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 transition-all"
                                     title="Delete question"
                                 >
-                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
+                                    <ion-icon name="trash-outline" className="w-5 h-5" />
                                 </button>
                             </div>
 
@@ -531,9 +523,7 @@ With state tracking and handlers defined, the `TestEditor` finally returns the J
                                             <span className="animate-pulse">Processing…</span>
                                         ) : (
                                             <>
-                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                                </svg>
+                                                <ion-icon name="image-outline" className="w-4 h-4" />
                                                 Add image
                                             </>
                                         )}
@@ -570,9 +560,7 @@ With state tracking and handlers defined, the `TestEditor` finally returns the J
                                                         className="peer sr-only"
                                                     />
                                                     <div className="w-4 h-4 rounded border-2 border-pit-blue/30 bg-white/60 peer-checked:bg-pit-blue peer-checked:border-pit-blue transition-all" />
-                                                    <svg className="absolute w-2.5 h-2.5 text-white opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                                    </svg>
+                                                    <ion-icon name="checkmark-outline" className="absolute w-2.5 h-2.5 text-white opacity-0 peer-checked:opacity-100 transition-opacity pointer-events-none" />
                                                 </div>
                                                 <span className="text-xs font-semibold text-pit-grey-light group-hover:text-pit-blue transition-colors">Randomize order</span>
                                             </label>
@@ -580,9 +568,7 @@ With state tracking and handlers defined, the `TestEditor` finally returns the J
                                                 onClick={() => shuffleOptions(qIndex)}
                                                 className="text-xs font-semibold text-pit-blue/70 hover:text-pit-blue flex items-center gap-1 transition-colors"
                                             >
-                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                                </svg>
+                                                <ion-icon name="shuffle-outline" className="w-3.5 h-3.5" />
                                                 Shuffle
                                             </button>
                                         </div>
@@ -592,9 +578,7 @@ With state tracking and handlers defined, the `TestEditor` finally returns the J
                                         {(q as MultipleChoiceQuestion | MultipleAnswerQuestion).options.map((opt, oIndex) => (
                                             <Reorder.Item key={`${q.id}-opt-${opt}-${oIndex}`} value={opt} className="flex items-center gap-2">
                                                 <div className="cursor-grab active:cursor-grabbing p-1 text-pit-blue/30 hover:text-pit-blue transition-colors">
-                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 8h16M4 16h16" />
-                                                    </svg>
+                                                    <ion-icon name="reorder-two-outline" className="w-4 h-4" />
                                                 </div>
                                                 {/* Correct indicator */}
                                                 {q.type === 'multiple-choice' ? (
@@ -635,9 +619,7 @@ With state tracking and handlers defined, the `TestEditor` finally returns the J
                                                         className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all shrink-0"
                                                         title="Remove option"
                                                     >
-                                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                                        </svg>
+                                                        <ion-icon name="close-outline" className="w-4 h-4" />
                                                     </button>
                                                 )}
                                             </Reorder.Item>
@@ -649,9 +631,7 @@ With state tracking and handlers defined, the `TestEditor` finally returns the J
                                         onClick={() => addOption(qIndex)}
                                         className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-pit-blue hover:text-pit-blue/80 transition-all"
                                     >
-                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                                        </svg>
+                                        <ion-icon name="add-outline" className="w-4 h-4" />
                                         Add option
                                     </button>
                                 </div>
@@ -666,9 +646,7 @@ With state tracking and handlers defined, the `TestEditor` finally returns the J
                     onClick={addQuestion}
                     className="w-full p-4 rounded-2xl border-2 border-dashed border-pit-blue/30 text-pit-blue font-semibold hover:border-pit-blue/50 hover:bg-white/30 transition-all flex items-center justify-center gap-2"
                 >
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                    </svg>
+                    <ion-icon name="add-outline" className="w-5 h-5" />
                     Add Question
                 </button>
 

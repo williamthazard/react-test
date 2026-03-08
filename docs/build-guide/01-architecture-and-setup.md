@@ -37,6 +37,9 @@ npx tailwindcss init -p
 
 # Install Appwrite Web SDK and Framer Motion for Drag-and-Drop
 npm install appwrite framer-motion
+
+# Install Ionicons for consistent, human-readable icons
+npm install ionicons
 ```
 
 ### Configuring Tailwind CSS
@@ -106,7 +109,117 @@ Update your `src/index.css` to import Tailwind's directives:
 }
 ```
 
-## 3. Appwrite Backend Infrastructure
+## 3. Setting Up Ionicons
+
+We use [Ionicons](https://ionic.io/ionicons) for consistent, readable icons throughout the application. Instead of embedding raw SVG paths in our components, Ionicons provides semantic icon names that make the code much easier to understand.
+
+### Icon Setup File
+
+Create `src/icons/index.ts` to centralize all icon imports:
+
+```typescript
+// icons/index.ts
+// Centralized icon setup - all Ionicons used in the application
+import { addIcons } from 'ionicons';
+import {
+    // Editor icons
+    trashOutline,
+    reorderTwoOutline,
+    addOutline,
+    closeOutline,
+    imageOutline,
+    shuffleOutline,
+    // Form icons
+    personOutline,
+    // Status icons
+    checkmarkOutline,
+    syncOutline,
+} from 'ionicons/icons';
+
+// Setup all icons at once
+export const setupAllIcons = () => {
+    addIcons({
+        // Editor icons
+        'trash-outline': trashOutline,
+        'reorder-two-outline': reorderTwoOutline,
+        'add-outline': addOutline,
+        'close-outline': closeOutline,
+        'image-outline': imageOutline,
+        'shuffle-outline': shuffleOutline,
+        // Form icons
+        'person-outline': personOutline,
+        // Status icons
+        'checkmark-outline': checkmarkOutline,
+        'sync-outline': syncOutline,
+    });
+};
+```
+
+### TypeScript Declarations
+
+Create `src/icons/types.d.ts` to enable TypeScript support for the `ion-icon` web component:
+
+```typescript
+// types.d.ts
+// TypeScript declarations for ion-icon web component in React/JSX
+import 'react';
+
+declare module 'react' {
+    namespace JSX {
+        interface IntrinsicElements {
+            'ion-icon': React.DetailedHTMLProps<
+                React.HTMLAttributes<HTMLElement> & {
+                    name: string;
+                    size?: 'small' | 'large';
+                },
+                HTMLElement
+            >;
+        }
+    }
+}
+```
+
+### Initialize Icons in main.tsx
+
+Update `src/main.tsx` to define the custom element and register icons before rendering:
+
+```typescript
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import './index.css'
+import App from './App.tsx'
+import { setupAllIcons } from './icons'
+import { defineCustomElements } from 'ionicons/loader'
+
+// Initialize Ionicons: define custom element and register icons
+defineCustomElements(window);
+setupAllIcons();
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)
+```
+
+### Using Icons in Components
+
+Once set up, you can use icons anywhere in your components with the `ion-icon` element:
+
+```tsx
+// Semantic icon usage - much more readable than raw SVG paths!
+<ion-icon name="trash-outline" className="w-5 h-5" />
+<ion-icon name="add-outline" className="w-4 h-4" />
+<ion-icon name="checkmark-outline" className="w-3 h-3 text-white" />
+```
+
+This approach offers several benefits:
+- **Readability**: `name="trash-outline"` is instantly understandable vs. cryptic SVG paths
+- **Consistency**: All icons come from the same design system
+- **Maintainability**: Changing an icon is a simple name swap
+- **Bundle efficiency**: Only the icons you use are included
+
+## 4. Appwrite Backend Infrastructure
 
 Log into your Appwrite Cloud console and create a new project. 
 

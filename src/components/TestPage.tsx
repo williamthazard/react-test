@@ -138,9 +138,7 @@ export default function TestPage({ code, initialPayload }: { code: string; initi
                 <div className="relative z-10 text-center p-10 rounded-2xl bg-white/40 backdrop-blur-xl border border-white/40 shadow-xl max-w-lg">
                     <div className="flex justify-center mb-6">
                         <div className="w-20 h-20 rounded-full bg-green-500 flex items-center justify-center shadow-lg">
-                            <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
+                            <ion-icon name="checkmark-outline" className="w-10 h-10 text-white" />
                         </div>
                     </div>
                     <h2 className="text-3xl font-bold text-pit-grey font-heading tracking-tight mb-3">Test Submitted</h2>
@@ -205,9 +203,7 @@ export default function TestPage({ code, initialPayload }: { code: string; initi
                 <div className={`p-6 rounded-2xl border bg-white/40 backdrop-blur-xl shadow-sm transition-all duration-300 ${nameError ? 'border-red-400 ring-2 ring-red-200' : 'border-white/40'}`}>
                     <div className="flex items-center gap-3 mb-4">
                         <span className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-lg bg-pit-blue text-white">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                            </svg>
+                            <ion-icon name="person-outline" className="w-4 h-4" />
                         </span>
                         <h2 className="text-pit-grey font-semibold">Student Information</h2>
                         <span className="text-xs text-red-500 font-medium">Required</span>
