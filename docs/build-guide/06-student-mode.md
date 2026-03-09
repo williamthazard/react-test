@@ -297,6 +297,14 @@ The rest of the component is the main test UI. We use an unusual pattern here: t
             <main className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-6">
 ```
 
+A few structural notes about the header layout:
+
+- **`fixed` vs `absolute`** — The yellow accent bar here uses `fixed` (not `absolute` like the login screen). In `AccessCodeWall`, the outer div fills the screen and the bar is `absolute` relative to it. Here the page scrolls, so the bar must be `fixed` to the viewport to stay pinned at the top regardless of scroll position. The decorative orbs are also `fixed` for the same reason — otherwise they'd scroll away with the page content.
+
+- **`z-60` on the yellow bar** — The sticky header is `z-50`. For the yellow accent bar to appear on top of the header, it needs a higher z-index — hence `z-60`. (Tailwind generates `z-60` because it's listed in the default z-index scale alongside `z-50`, `z-40`, etc.)
+
+- **`bg-pit-blue/90`** on the header — The header background is nearly opaque but not quite: `/90` = 90% opacity. The `backdrop-blur-md` filters whatever the header sits over through this slight translucency, giving the header a subtle frosted look as content scrolls beneath it.
+
 ### Name Fields
 
 The student information card appears first. It uses `ion-icon name="person-outline"` as a visual label. If the student tries to submit without filling these in, `nameError` becomes true and the card gets a red border ring:

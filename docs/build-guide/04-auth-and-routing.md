@@ -227,6 +227,36 @@ Note that the body sent to the function is simply `{ code: code.trim() }` — no
 }
 ```
 
+**Understanding the Tailwind layout in this component:**
+
+The outermost `<div>` uses a layout pattern that appears throughout the app:
+- `min-h-screen` — ensures the container is at least the full viewport height, so the centered card always has breathing room
+- `flex items-center justify-center` — the three-class centering pattern. `flex` activates flexbox, `items-center` centers children vertically, `justify-center` centers them horizontally. Together they put the single card child in the exact middle of the screen
+- `bg-gradient-to-br from-[#1a2a4a] via-[#253d6e] to-[#1e3058]` — a diagonal gradient pointing bottom-right (`br`) using three arbitrary hex colors as start, middle, and end stops
+- `relative overflow-hidden` — `relative` makes this div the positioning anchor for all the `absolute` children inside (the yellow bar, the decorative orbs). `overflow-hidden` clips those orbs at the div's edges so they don't create unwanted scrollbars
+
+The **decorative orbs** (the four `absolute rounded-full blur-3xl` divs) are intentionally pushed beyond the visible area and blurred to extreme softness. They create depth and ambient color without any hard edges — a purely decorative light effect. The `/30` in `bg-[#3161AC]/30` is Tailwind's opacity modifier: the navy color at 30% transparency.
+
+The **card** uses Tailwind's glassmorphism combination:
+- `bg-white/10` — white at 10% opacity (barely tinted, like frosted glass)
+- `backdrop-blur-xl` — blurs the decorative orbs visible behind the card through its translucent surface
+- `border border-white/15` — a faint white border that gives the glass panel a defined, light-catching edge
+- `shadow-2xl` — a large drop shadow that grounds the card visually
+
+The **conditional `className`** on the card — `` className={`...transition-transform ${shake ? 'animate-shake' : ''}`} `` — uses a JavaScript template literal (backtick string) with a ternary inside `${}`. When `shake` is `true`, the `animate-shake` class is appended; when `false`, an empty string is added (which Tailwind ignores). This is the standard React pattern for toggling classes based on state. See `tailwind.config.ts` for the `animate-shake` keyframe definition.
+
+The **input field** in the form uses several first-appearance patterns:
+- `tracking-widest font-mono` — extra-wide letter-spacing and monospace font, making access codes easier to read and type
+- `placeholder-blue-200/40` — a faint bluish placeholder text (40% opacity)
+- `focus:ring-2 focus:ring-[#F7CC07]/50 focus:border-[#F7CC07]/50` — these three `focus:` variants together create a yellow glow ring around the input when the user is actively typing in it
+- `disabled:opacity-50` — the input fades to 50% opacity when `disabled={checking}` is true (while a network request is in flight)
+
+The **submit button**'s hover/active/disabled combination is worth understanding in full:
+- `hover:scale-[1.02]` — scales the button up 2% on hover (a slight "lift" effect)
+- `active:scale-[0.98]` — scales it down 2% when actively clicked (a "pressed" tactile effect)
+- `disabled:hover:scale-100` — cancels the hover scale (`scale-100` = no scaling) when disabled. Without this, a disabled-but-hovered button would still show the scale-up animation, which would be misleading
+- `shadow-[#3161AC]/30` — a colored drop shadow at 30% opacity, matching the button color for a "glow" effect
+
 A few design notes worth explaining:
 - **The spinning SVG**: Rather than using an Ionicons icon for the loading state here, we use an inline SVG with `animate-spin` (a built-in Tailwind utility). This is intentional — at the moment the spinner appears, we haven't yet confirmed the user is authorized, so we avoid any dependency on our icon setup being fully loaded.
 - **`import.meta.env.BASE_URL`**: Vite injects this at build time. It ensures the logo path works correctly both in development (where it's `/`) and in subdirectory deployments like GitHub Pages (where it may be `/repo-name/`).

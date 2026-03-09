@@ -133,6 +133,16 @@ export default async ({ req, res, log, error }) => {
 };
 ```
 
+**JavaScript patterns used in this function:**
+
+**Destructured function parameters** — `export default async ({ req, res, log, error }) => {` receives a single context object from Appwrite and immediately destructures it into named variables. This is equivalent to `async (context) => { const { req, res, log, error } = context; ... }`. Appwrite calls your function with this exact object shape; the names `req`, `res`, `log`, and `error` are Appwrite's API contract — use these exact names.
+
+**`process.env`** — In Node.js, `process.env` is a global object containing all environment variables configured for the running process. When you set `ACCESS_CODE = TEST2026` in the Appwrite console under the function's settings, it becomes readable inside the function as `process.env.ACCESS_CODE`. This is the standard, secure way to supply secrets to server-side code — the values never appear in source files or version control.
+
+**Defensive body parsing** — `typeof req.body === 'string' ? JSON.parse(req.body) : req.body` handles an Appwrite runtime quirk. When invoked through the Appwrite SDK (as our frontend does), the body may arrive as a pre-parsed JavaScript object. When called directly over HTTP, it arrives as a raw JSON string. The ternary covers both cases by only calling `JSON.parse` when needed.
+
+**Early returns** — Throughout the function, `return res.json(...)` both sends the HTTP response and immediately exits the function. This avoids deeply nested `if/else` chains and makes each logical branch easy to read in isolation.
+
 **Cold Starts and Deployment Sizing:** Serverless functions run in containers that are spun up on demand and shut down after a period of inactivity. The first request after a period of idle time incurs a "cold start" penalty — the container has to boot, load the Node.js runtime, and execute the module before it can process the request. On the default `s-0.5vcpu-512mb` specification, this can take 3–8 seconds, which is long enough for Appwrite's synchronous execution timeout to fire and kill the request before a response is sent.
 
 In the Appwrite console, upgrade this function's specification to `s-1vcpu-1gb` and set its **Timeout to 120 seconds**. The larger spec boots faster. The longer timeout ensures that even a slow cold start completes before Appwrite terminates the execution. The `AccessCodeWall` component (Part 4) also fires a background warm-up request on page load to further reduce the chance of a cold start hitting a real user action.

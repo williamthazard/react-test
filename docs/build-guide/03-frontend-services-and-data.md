@@ -103,6 +103,9 @@ async function executeWithRetry(body: string): Promise<string | null> {
             );
             return result.responseBody || null;
         } catch (e) {
+            // TypeScript types a caught value as `unknown` — it could be an Error, a string, or anything.
+            // `instanceof Error` checks whether it's a real Error object before reading `.message`.
+            // `String(e)` safely converts any other type to a printable string as a fallback.
             const msg = e instanceof Error ? e.message : String(e);
             console.warn(`Function attempt ${attempt}/${MAX_RETRIES} failed: ${msg}`);
             if (attempt < MAX_RETRIES) await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
@@ -168,6 +171,9 @@ import { loadQuestions, type MultipleChoiceQuestion, type MultipleAnswerQuestion
 import { ExecutionMethod } from 'appwrite';
 import { functions, SEND_RESULTS_FUNCTION_ID } from './appwrite';
 
+// Record<K, V> is TypeScript's built-in utility type for plain objects used as lookup maps.
+// Record<number, string | string[]> means: keys are numbers (question IDs), values are
+// either a string (single answer for MC/essay) or string[] (multiple selections for MA questions).
 type Answers = Record<number, string | string[]>;
 
 // formatResults loads the questions from the server, grades each answer,

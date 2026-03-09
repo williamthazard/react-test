@@ -443,6 +443,8 @@ Before the main render, we handle loading and error states with early returns �
     }
 ```
 
+The early-return screens use the same `from-[#e8edf5] via-[#dde4f0] to-[#d0d9eb]` light gradient as the student mode (Part 6). This is the editor's "neutral" backdrop — when the editor isn't in its editing dark-navy state, it falls back to this soft gray-blue gradient.
+
 ## Render Structure
 
 With state tracking and handlers defined, the `TestEditor` returns the JSX component tree. A few structural notes before reading the JSX:
@@ -451,6 +453,10 @@ With state tracking and handlers defined, the `TestEditor` returns the JSX compo
 - **`Reorder.Item`** must use `key={q.id}` — the question's stable numeric ID — rather than the array index. If we used the index, React would re-mount components as they moved rather than animate them, breaking the drag-and-drop.
 - **`style={{ y: 0 }}`** on each `Reorder.Item` resets the Framer Motion y-transform after a drag, preventing the item from staying visually offset from its layout position.
 - **The custom checkbox** (the "Randomize question order" toggle) uses Tailwind's `peer` utility. The actual `<input type="checkbox">` is hidden with `sr-only` (removed from the visual flow but still accessible). The styled `<div>` next to it uses `peer-checked:` variants to change appearance when the hidden checkbox is checked. This gives full keyboard and screen-reader accessibility while using custom visual styling.
+
+**The sticky header** (`sticky top-0 z-50`) sits at the top of the editor and stays in place as the teacher scrolls through questions. `sticky` is different from `fixed` — a fixed element is pulled entirely out of the document flow and positioned relative to the viewport, while a `sticky` element stays in the document flow and simply "sticks" to its offset (here `top-0`) once scrolled to that point.
+
+**Negative spacing utilities** — In the image preview (`-top-2 -right-2`), Tailwind's spacing scale can be negated by prefixing `-`. `-top-2` means `top: -0.5rem`, which positions the remove button slightly outside and above the image corner. This is a common pattern for "badge" or "close button" placement.
 
 The UI is wrapped in a `<Reorder.Group>` which maps over each question:
 
@@ -869,3 +875,15 @@ The UI is wrapped in a `<Reorder.Group>` which maps over each question:
     );
 }
 ```
+
+**New Tailwind patterns introduced in this component:**
+
+- **`fixed`** — Used for the toast notification (`fixed top-14 left-1/2 -translate-x-1/2`) and both confirmation modals (`fixed inset-0`). Unlike `sticky`, `fixed` removes the element from the document flow entirely and positions it relative to the viewport. The toast stays pinned to the top-center of the screen regardless of scroll position. The modals' `fixed inset-0` fills the full viewport (since `inset-0` = `top: 0; right: 0; bottom: 0; left: 0`).
+
+- **`-translate-x-1/2`** — The toast uses `left-1/2 -translate-x-1/2` to horizontally center itself. `left-1/2` moves the left edge of the element to the horizontal center of the screen; `-translate-x-1/2` then shifts the element back left by half its own width. Together they center-align the element regardless of its width — a very common CSS centering technique.
+
+- **`border-dashed`** — The "Add Question" button at the bottom uses a dashed border (`border-2 border-dashed border-pit-blue/30`) to signal an interactive zone that isn't quite a full card. Dashed borders are a common UI convention for drag targets and "add new item" affordances.
+
+- **`accent-[#3161AC]`** — The radio and checkbox inputs inside each option row use `accent-[#3161AC]` and `accent-[#F7CC07]`. This CSS property sets the fill color of native form controls (the checkmark, the radio dot) without hiding and re-styling them. It gives the native controls brand colors while keeping them keyboard-accessible and semantically correct.
+
+- **`opacity-0 group-hover:opacity-100`** — The image remove button uses `opacity-0 group-hover:opacity-100` (with `group` on the parent container) to make it invisible until the teacher hovers over the image. This avoids visual clutter while the button is still accessible. See the `group` pattern explanation in Part 1.
