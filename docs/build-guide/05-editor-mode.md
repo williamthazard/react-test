@@ -9,17 +9,21 @@ The editor leverages `framer-motion` for spring-physics drag-and-drop reordering
 ```tsx
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Reorder } from 'framer-motion';
-import { 
-    loadQuestions, 
-    saveQuestions, 
-    type Question, 
-    type MultipleChoiceQuestion, 
-    type MultipleAnswerQuestion, 
-    type TestDataPayload, 
-    type TestConfig 
+import {
+    loadQuestions,
+    saveQuestions,
+    type Question,
+    type MultipleChoiceQuestion,
+    type MultipleAnswerQuestion,
+    type TestDataPayload,
+    type TestConfig
 } from '../data/questionsData';
 
 type QuestionType = 'multiple-choice' | 'multiple-answer' | 'essay';
+
+// Generate stable IDs for options (used for Reorder keys)
+let optionIdCounter = 0;
+const generateOptionId = () => `opt-${++optionIdCounter}`;
 
 function createBlankQuestion(id: number, qType: QuestionType): Question {
     switch (qType) {
@@ -49,6 +53,22 @@ export default function TestEditor({ code, initialPayload }: { code: string; ini
     const [draggingOver, setDraggingOver] = useState<number | null>(null);
     const [uploadingImage, setUploadingImage] = useState<number | null>(null);
     const fileInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+
+    // Track stable IDs for options to enable both editing and reordering
+    // Map: questionId -> array of option IDs (same length as options array)
+    const optionIdsRef = useRef<Record<number, string[]>>({});
+
+    // Helper to get or create option IDs for a question
+    const getOptionIds = (questionId: number, optionsCount: number): string[] => {
+        if (!optionIdsRef.current[questionId]) {
+            optionIdsRef.current[questionId] = Array.from({ length: optionsCount }, () => generateOptionId());
+        }
+        // Ensure we have enough IDs (in case options were added)
+        while (optionIdsRef.current[questionId].length < optionsCount) {
+            optionIdsRef.current[questionId].push(generateOptionId());
+        }
+        return optionIdsRef.current[questionId];
+    };
 
     const doLoad = () => {
         setLoading(true);
@@ -137,6 +157,12 @@ const addOption = (qIndex: number) => {
 const deleteOption = (qIndex: number, oIndex: number) => {
     const q = questions[qIndex] as MultipleChoiceQuestion | MultipleAnswerQuestion;
     if (q.options.length <= 2) return;
+
+    // Remove the option ID
+    if (optionIdsRef.current[q.id]) {
+        optionIdsRef.current[q.id] = optionIdsRef.current[q.id].filter((_, i) => i !== oIndex);
+    }
+
     const newOpts = q.options.filter((_, i) => i !== oIndex);
     if (q.type === 'multiple-choice') {
         const mc = q as MultipleChoiceQuestion;
@@ -179,10 +205,15 @@ const toggleRandomizeOptions = (qIndex: number) => {
 const shuffleOptions = (qIndex: number) => {
     const q = questions[qIndex] as MultipleChoiceQuestion | MultipleAnswerQuestion;
     const originalOptions = [...q.options];
-    const shuffledOptions = [...q.options]
-        .map(value => ({ value, sort: Math.random() }))
-        .sort((a, b) => a.sort - b.sort)
-        .map(({ value }) => value);
+    const currentIds = optionIdsRef.current[q.id] || [];
+
+    // Shuffle with indices to track ID reordering
+    const indexed = q.options.map((value, index) => ({ value, index, sort: Math.random() }));
+    indexed.sort((a, b) => a.sort - b.sort);
+    const shuffledOptions = indexed.map(({ value }) => value);
+
+    // Reorder the option IDs to match
+    optionIdsRef.current[q.id] = indexed.map(({ index }) => currentIds[index] || generateOptionId());
 
     if (q.type === 'multiple-choice') {
         const correctStr = originalOptions[q.correctIndex];
@@ -198,6 +229,14 @@ const shuffleOptions = (qIndex: number) => {
 const reorderOptions = (qIndex: number, newOptions: string[]) => {
     const q = questions[qIndex] as MultipleChoiceQuestion | MultipleAnswerQuestion;
     const originalOptions = [...q.options];
+    const currentIds = optionIdsRef.current[q.id] || [];
+
+    // Reorder the option IDs to match the new order
+    const newIds = newOptions.map((opt) => {
+        const oldIndex = originalOptions.indexOf(opt);
+        return currentIds[oldIndex] || generateOptionId();
+    });
+    optionIdsRef.current[q.id] = newIds;
 
     if (q.type === 'multiple-choice') {
         const correctStr = originalOptions[q.correctIndex];
@@ -575,8 +614,10 @@ With state tracking and handlers defined, the `TestEditor` finally returns the J
                                     </div>
 
                                     <Reorder.Group axis="y" values={(q as MultipleChoiceQuestion | MultipleAnswerQuestion).options} onReorder={(opts) => reorderOptions(qIndex, opts)} className="space-y-2">
-                                        {(q as MultipleChoiceQuestion | MultipleAnswerQuestion).options.map((opt, oIndex) => (
-                                            <Reorder.Item key={`${q.id}-opt-${opt}-${oIndex}`} value={opt} className="flex items-center gap-2">
+                                        {(q as MultipleChoiceQuestion | MultipleAnswerQuestion).options.map((opt, oIndex) => {
+                                            const optionIds = getOptionIds(q.id, (q as MultipleChoiceQuestion | MultipleAnswerQuestion).options.length);
+                                            return (
+                                            <Reorder.Item key={optionIds[oIndex]} value={opt} className="flex items-center gap-2">
                                                 <div className="cursor-grab active:cursor-grabbing p-1 text-pit-blue/30 hover:text-pit-blue transition-colors">
                                                     <ion-icon name="reorder-two-outline" className="w-4 h-4" />
                                                 </div>
@@ -623,7 +664,8 @@ With state tracking and handlers defined, the `TestEditor` finally returns the J
                                                     </button>
                                                 )}
                                             </Reorder.Item>
-                                        ))}
+                                            );
+                                        })}
                                     </Reorder.Group>
 
                                     {/* Add option */}

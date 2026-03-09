@@ -133,3 +133,29 @@ const handleSubmit = async () => {
 ```
 
 If successful, the component transitions to a `"success"` UI state, rendering a green checkmark and hiding the test questions, ensuring the test cannot be re-submitted.
+
+## UI Elements with Ionicons
+
+The student mode uses Ionicons for consistent icon styling across the application:
+
+**Success Screen Checkmark:**
+```tsx
+{submitState === 'success' && (
+    <div className="w-20 h-20 rounded-full bg-green-500 flex items-center justify-center shadow-lg">
+        <ion-icon name="checkmark-outline" className="w-10 h-10 text-white" />
+    </div>
+)}
+```
+
+**Student Information Section:**
+```tsx
+<div className="flex items-center gap-3 mb-4">
+    <span className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-lg bg-pit-blue text-white">
+        <ion-icon name="person-outline" className="w-4 h-4" />
+    </span>
+    <h2 className="text-pit-grey font-semibold">Student Information</h2>
+    <span className="text-xs text-red-500 font-medium">Required</span>
+</div>
+```
+
+These icons are registered in `src/icons/index.ts` and loaded via the CDN scripts in `index.html` as documented in Part 1.

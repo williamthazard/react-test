@@ -219,6 +219,33 @@ This approach offers several benefits:
 - **Maintainability**: Changing an icon is a simple name swap
 - **Bundle efficiency**: Only the icons you use are included
 
+### Production CDN Scripts
+
+For production builds, the Ionicons web component needs to be loaded via CDN scripts in `index.html`. This ensures the `<ion-icon>` custom element is properly registered before React renders:
+
+```html
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Assessment Test</title>
+  <script type="module" src="https://unpkg.com/ionicons@8.0.5/dist/ionicons/ionicons.esm.js"></script>
+  <script nomodule src="https://unpkg.com/ionicons@8.0.5/dist/ionicons/ionicons.js"></script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
+</html>
+```
+
+The two script tags handle both modern browsers (ES modules) and legacy browsers (nomodule fallback). This CDN approach ensures the web component definition is available immediately, without relying on the bundler to handle Stencil's custom element registration.
+
 ## 4. Appwrite Backend Infrastructure
 
 Log into your Appwrite Cloud console and create a new project. 
