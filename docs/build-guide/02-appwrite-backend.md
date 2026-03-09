@@ -144,14 +144,24 @@ Create a second Node.js function in Appwrite. Set the environment variable:
 ```javascript
 const POSTAL_URL = 'https://postal.msg.yourdomain.com/api/v1/send/message';
 const SENDER = 'noreply@yourdomain.com';
-const RECIPIENT = 'teacher@school.edu';
+
+// This is the address used if no recipients have been configured in the editor.
+// It ensures results are never silently lost even on a fresh install.
+const FALLBACK_RECIPIENT = 'teacher@school.edu';
 
 export default async ({ req, res, log, error }) => {
     if (req.method !== 'POST') return res.json({ ok: false, error: 'Method not allowed' }, 405);
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-        const { subject, message } = body;
+
+        // recipients is a string[] forwarded from the editor's TestConfig.recipientEmails.
+        // If the editor has configured at least one address, we use that list.
+        // Otherwise we fall back to the hardcoded FALLBACK_RECIPIENT so nothing is silently lost.
+        const { subject, message, recipients } = body;
+        const toList = (Array.isArray(recipients) && recipients.length > 0)
+            ? recipients
+            : [FALLBACK_RECIPIENT];
 
         const apiKey = process.env.POSTAL_API_KEY;
 
@@ -162,10 +172,10 @@ export default async ({ req, res, log, error }) => {
                 'X-Server-API-Key': apiKey,
             },
             body: JSON.stringify({
-                to: [RECIPIENT],
+                to: toList,   // Postal accepts an array, so multiple recipients work natively
                 from: SENDER,
                 subject: subject,
-                plain_body: message, // Or html_body if preferred
+                plain_body: message,
             }),
         });
 

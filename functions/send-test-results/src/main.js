@@ -1,5 +1,5 @@
 const POSTAL_URL = 'https://postal.msg.williamhazard.co/api/v1/send/message';
-const RECIPIENT = 'spencer.graham@pit.edu';
+const FALLBACK_RECIPIENT = 'spencer.graham@pit.edu';
 const SENDER = 'PIT.test@msg.williamhazard.co';
 
 export default async ({ req, res, log, error }) => {
@@ -17,7 +17,8 @@ export default async ({ req, res, log, error }) => {
             body = req.body;
         }
 
-        const { subject, message } = body;
+        const { subject, message, recipients } = body;
+        const toList = (Array.isArray(recipients) && recipients.length > 0) ? recipients : [FALLBACK_RECIPIENT];
 
         if (!subject || !message) {
             error(`Missing fields. Got keys: ${Object.keys(body).join(', ')}`);
@@ -30,7 +31,7 @@ export default async ({ req, res, log, error }) => {
             return res.json({ ok: false, error: 'Server configuration error' }, 500);
         }
 
-        log(`Sending test results to ${RECIPIENT} via Postal...`);
+        log(`Sending test results to ${toList.join(', ')} via Postal...`);
         log(`Subject: ${subject}`);
 
         const postalResponse = await fetch(POSTAL_URL, {
@@ -40,7 +41,7 @@ export default async ({ req, res, log, error }) => {
                 'X-Server-API-Key': apiKey,
             },
             body: JSON.stringify({
-                to: [RECIPIENT],
+                to: toList,
                 from: SENDER,
                 subject: subject,
                 plain_body: message,

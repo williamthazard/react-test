@@ -31,6 +31,7 @@ function createBlankQuestion(id: number, qType: QuestionType): Question {
 export default function TestEditor({ code, initialPayload }: { code: string; initialPayload?: TestDataPayload | null }) {
     const [questions, setQuestions] = useState<Question[]>([]);
     const [config, setConfig] = useState<TestConfig>({});
+    const [emailInput, setEmailInput] = useState('');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -278,6 +279,20 @@ export default function TestEditor({ code, initialPayload }: { code: string; ini
         setConfirmDelete(null);
     };
 
+    const addRecipient = () => {
+        const email = emailInput.trim().toLowerCase();
+        if (!email || !email.includes('@')) return;
+        const current = config.recipientEmails ?? [];
+        if (current.includes(email)) return;
+        setConfig({ ...config, recipientEmails: [...current, email] });
+        setEmailInput('');
+    };
+
+    const removeRecipient = (email: string) => {
+        const current = config.recipientEmails ?? [];
+        setConfig({ ...config, recipientEmails: current.filter((e) => e !== email) });
+    };
+
     const handleSave = async () => {
         setSaving(true);
         try {
@@ -431,6 +446,49 @@ export default function TestEditor({ code, initialPayload }: { code: string; ini
                         <ion-icon name="shuffle-outline" className="w-4 h-4" />
                         Shuffle Questions
                     </button>
+                </div>
+
+                {/* Result Recipients */}
+                <div className="mt-3 p-4 rounded-xl border border-white/40 bg-white/40 backdrop-blur-md shadow-sm space-y-3">
+                    <p className="text-sm font-semibold text-pit-grey">Result Recipients</p>
+
+                    {/* Existing recipients */}
+                    <div className="flex flex-wrap gap-2">
+                        {(config.recipientEmails ?? []).map((email) => (
+                            <span key={email} className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-pit-blue/10 border border-pit-blue/20 text-xs font-semibold text-pit-blue">
+                                {email}
+                                <button
+                                    onClick={() => removeRecipient(email)}
+                                    className="hover:text-red-500 transition-colors leading-none"
+                                    title="Remove"
+                                >
+                                    <ion-icon name="close-outline" className="w-3.5 h-3.5" />
+                                </button>
+                            </span>
+                        ))}
+                        {(config.recipientEmails ?? []).length === 0 && (
+                            <span className="text-xs text-gray-400 italic">No recipients configured — results will go to the default address.</span>
+                        )}
+                    </div>
+
+                    {/* Add new recipient */}
+                    <div className="flex gap-2">
+                        <input
+                            type="email"
+                            value={emailInput}
+                            onChange={(e) => setEmailInput(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addRecipient(); } }}
+                            placeholder="name@school.edu"
+                            className="flex-1 px-3 py-2 rounded-lg border border-white/40 bg-white/60 text-pit-grey text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-pit-blue/30"
+                        />
+                        <button
+                            onClick={addRecipient}
+                            className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-pit-blue bg-white/60 hover:bg-white border border-pit-blue/20 rounded-lg shadow-sm transition-all"
+                        >
+                            <ion-icon name="add-outline" className="w-4 h-4" />
+                            Add
+                        </button>
+                    </div>
                 </div>
             </div>
 

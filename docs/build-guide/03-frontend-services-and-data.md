@@ -60,6 +60,7 @@ export type Question = MultipleChoiceQuestion | MultipleAnswerQuestion | EssayQu
 
 export type TestConfig = {
     randomizeQuestions?: boolean;
+    recipientEmails?: string[];
 };
 
 export type TestDataPayload = {
@@ -153,44 +154,60 @@ import { ExecutionMethod } from 'appwrite';
 import { functions, SEND_RESULTS_FUNCTION_ID } from './appwrite';
 import type { Question } from '../data/questionsData';
 
-export async function sendResults(
-    firstName: string,
-    lastName: string,
+// formatResults loads the current questions from the server (via the access code),
+// grades the student's answers, and also extracts the configured recipient list from
+// the test settings — returning both so sendResults can forward them to the cloud function.
+async function formatResults(
     answers: Record<number, string | string[]>,
-    questions: Question[],
-    accessCode: string
+    studentName: string,
+    code: string
+): Promise<{ message: string; recipients: string[] }> {
+    const payload = await loadQuestions(code);
+    const questions = payload.questions;
+    const recipients = payload.settings?.recipientEmails ?? [];
+
+    // ... grading logic: compare answers against questions.correctIndex/Indices ...
+    // ... build lines[] array with per-question results ...
+
+    const header = [
+        '═══════════════════════════════════',
+        '       ASSESSMENT TEST RESULTS',
+        '═══════════════════════════════════',
+        `Student: ${studentName}`,
+        `Submitted: ${new Date().toLocaleString()}`,
+        // score line, etc.
+        '',
+        '───────────────────────────────────',
+        '',
+    ];
+
+    return { message: [...header /*, ...lines */].join('\n'), recipients };
+}
+
+// sendResults is the public API called by TestPage on submission.
+// It formats the results, then fires them at the send-test-results Appwrite function,
+// passing the recipient list so the cloud function knows where to send the email.
+export async function sendResults(
+    answers: Record<number, string | string[]>,
+    studentName: string,
+    code: string
 ): Promise<void> {
-    const htmlReport = formatResults(firstName, lastName, answers, questions, accessCode);
-    const subject = `Assessment Results: ${firstName} ${lastName}`;
+    const { message: formattedResults, recipients } = await formatResults(answers, studentName, code);
 
     const result = await functions.createExecution(
         SEND_RESULTS_FUNCTION_ID,
-        JSON.stringify({ subject, message: htmlReport }),
+        JSON.stringify({
+            subject: `Assessment Test Results – ${studentName}`,
+            message: formattedResults,
+            recipients,  // forwarded to the cloud function; empty array triggers the fallback
+        }),
         false,
         undefined,
         ExecutionMethod.POST
     );
 
-    if (result.status === 'failed' || !result.responseBody) {
-        throw new Error('Failed to execute email function');
-    }
-
+    if (result.status === 'failed') throw new Error('Appwrite execution failed');
     const parsed = JSON.parse(result.responseBody);
     if (!parsed.ok) throw new Error(parsed.error || 'Failed to send email');
-}
-
-function formatResults(
-    first: string, 
-    last: string, 
-    answers: Record<number, string | string[]>, 
-    questions: Question[],
-    accessCode: string
-): string {
-    // Basic grade calculation
-    let score = 0;
-    
-    // ... logic to calculate score based on comparing answers against questions.correctIndex/Indices ...
-    
-    return `Student ${first} ${last} scored ${score}/${questions.length}.`;
 }
 ```

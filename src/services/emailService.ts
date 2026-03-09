@@ -4,9 +4,10 @@ import { functions, SEND_RESULTS_FUNCTION_ID } from './appwrite';
 
 type Answers = Record<number, string | string[]>;
 
-async function formatResults(answers: Answers, studentName: string, code: string): Promise<string> {
+async function formatResults(answers: Answers, studentName: string, code: string): Promise<{ message: string; recipients: string[] }> {
     const payload = await loadQuestions(code);
     const questions = payload.questions;
+    const recipients = payload.settings?.recipientEmails ?? [];
     const lines: string[] = [];
     let mcCorrect = 0;
     let mcTotal = 0;
@@ -67,11 +68,11 @@ async function formatResults(answers: Answers, studentName: string, code: string
         '',
     ];
 
-    return [...header, ...lines].join('\n');
+    return { message: [...header, ...lines].join('\n'), recipients };
 }
 
 export async function sendResults(answers: Answers, studentName: string, code: string): Promise<void> {
-    const formattedResults = await formatResults(answers, studentName, code);
+    const { message: formattedResults, recipients } = await formatResults(answers, studentName, code);
     let retryCount = 0;
     const maxRetries = 3;
     let success = false;
@@ -83,6 +84,7 @@ export async function sendResults(answers: Answers, studentName: string, code: s
                 JSON.stringify({
                     subject: `Assessment Test Results – ${studentName}`,
                     message: formattedResults,
+                    recipients,
                 }),
                 false,
                 undefined,

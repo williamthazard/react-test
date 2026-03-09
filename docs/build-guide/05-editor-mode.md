@@ -50,6 +50,11 @@ export default function TestEditor({ code, initialPayload }: { code: string; ini
     const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
     const [confirmReset, setConfirmReset] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+
+    // emailInput holds the value of the "add recipient" text field.
+    // It is ephemeral UI state — it never gets saved to the database directly.
+    // Only the resolved list stored in config.recipientEmails is persisted.
+    const [emailInput, setEmailInput] = useState('');
     const [draggingOver, setDraggingOver] = useState<number | null>(null);
     const [uploadingImage, setUploadingImage] = useState<number | null>(null);
     const fileInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
@@ -133,6 +138,27 @@ const changeType = (index: number, newType: QuestionType) => {
 const addQuestion = () => {
     const maxId = questions.reduce((max, q) => Math.max(max, q.id), 0);
     setQuestions((prev) => [...prev, createBlankQuestion(maxId + 1, 'multiple-choice')]);
+};
+
+// ── Recipient Email Handlers ──
+
+// addRecipient validates the current emailInput and, if it looks like an email address
+// and isn't already in the list, appends it to config.recipientEmails and clears the input.
+// This is a great example of "optimistic state update" — we update local state immediately
+// without waiting for a server response. The change only actually persists when the editor
+// hits Save (which calls saveQuestions with the full config object).
+const addRecipient = () => {
+    const email = emailInput.trim().toLowerCase();
+    if (!email || !email.includes('@')) return;
+    const current = config.recipientEmails ?? [];
+    if (current.includes(email)) return;
+    setConfig({ ...config, recipientEmails: [...current, email] });
+    setEmailInput('');
+};
+
+const removeRecipient = (email: string) => {
+    const current = config.recipientEmails ?? [];
+    setConfig({ ...config, recipientEmails: current.filter((e) => e !== email) });
 };
 
 const deleteQuestion = (index: number) => {
@@ -462,6 +488,60 @@ With state tracking and handlers defined, the `TestEditor` finally returns the J
                     </button>
                 </div>
             </div>
+
+                {/* Result Recipients
+                    This card lives inside the same container as the Global Settings card above.
+                    It manages config.recipientEmails — the list of addresses that will receive
+                    submitted test results. The editor can add multiple addresses and remove any
+                    of them. The list is saved as part of TestConfig alongside the questions.
+
+                    Key concepts illustrated here:
+                    - Controlled inputs: emailInput state drives the <input> value
+                    - Array state updates: always create a new array (spread) rather than mutating
+                    - Keyboard UX: hitting Enter in the input field calls addRecipient, matching
+                      the behavior of the Add button — a small but important usability detail
+                */}
+                <div className="mt-3 p-4 rounded-xl border border-white/40 bg-white/40 backdrop-blur-md shadow-sm space-y-3">
+                    <p className="text-sm font-semibold text-pit-grey">Result Recipients</p>
+
+                    {/* Existing recipients rendered as dismissible tags */}
+                    <div className="flex flex-wrap gap-2">
+                        {(config.recipientEmails ?? []).map((email) => (
+                            <span key={email} className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-pit-blue/10 border border-pit-blue/20 text-xs font-semibold text-pit-blue">
+                                {email}
+                                <button
+                                    onClick={() => removeRecipient(email)}
+                                    className="hover:text-red-500 transition-colors leading-none"
+                                    title="Remove"
+                                >
+                                    <ion-icon name="close-outline" className="w-3.5 h-3.5" />
+                                </button>
+                            </span>
+                        ))}
+                        {(config.recipientEmails ?? []).length === 0 && (
+                            <span className="text-xs text-gray-400 italic">No recipients configured — results will go to the default address.</span>
+                        )}
+                    </div>
+
+                    {/* Add new recipient */}
+                    <div className="flex gap-2">
+                        <input
+                            type="email"
+                            value={emailInput}
+                            onChange={(e) => setEmailInput(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addRecipient(); } }}
+                            placeholder="name@school.edu"
+                            className="flex-1 px-3 py-2 rounded-lg border border-white/40 bg-white/60 text-pit-grey text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-pit-blue/30"
+                        />
+                        <button
+                            onClick={addRecipient}
+                            className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-pit-blue bg-white/60 hover:bg-white border border-pit-blue/20 rounded-lg shadow-sm transition-all"
+                        >
+                            <ion-icon name="add-outline" className="w-4 h-4" />
+                            Add
+                        </button>
+                    </div>
+                </div>
 
             {/* Questions */}
             <main className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 py-4 space-y-6">

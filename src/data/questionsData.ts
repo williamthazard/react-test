@@ -30,6 +30,7 @@ export type Question = MultipleChoiceQuestion | MultipleAnswerQuestion | EssayQu
 
 export type TestConfig = {
     randomizeQuestions?: boolean;
+    recipientEmails?: string[];
 };
 
 export type TestDataPayload = {
