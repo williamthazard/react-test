@@ -4,7 +4,7 @@ The frontend uses standard TypeScript models and a dedicated service layer to in
 
 ## 1. Appwrite Client Initialization
 
-Create a file `src/services/appwrite.ts`. This initializes the SDK and exports the serverless function IDs.
+Create a file `src/services/appwrite.ts`. This initializes the Appwrite SDK client and exports references to it that every other service file imports. Centralizing initialization here means there is exactly one client instance in the entire app.
 
 ```typescript
 import { Client, Functions, Databases } from 'appwrite';
@@ -16,14 +16,22 @@ const client = new Client()
 export const functions = new Functions(client);
 export const databases = new Databases(client);
 
-// Replace these with the generated IDs from the Appwrite Console
+// Function IDs are found in the Appwrite Console under Functions → [function name] → Settings → Function ID.
+// The verify-access-code function uses its name as its ID if you created it that way;
+// the send-test-results function will have an auto-generated alphanumeric ID.
 export const VERIFY_FUNCTION_ID = 'verify-access-code';
-export const SEND_RESULTS_FUNCTION_ID = 'send-test-results';
+export const SEND_RESULTS_FUNCTION_ID = 'your-send-results-function-id';
 ```
+
+> **Note on the `databases` export:** The `Databases` object is initialized and exported from `appwrite.ts` but is not used by any of our frontend code — all database access goes through the serverless functions. It is exported for completeness in case you want to add a direct database query in the future, but you can omit it and only keep the `Functions` export if you prefer a leaner setup.
 
 ## 2. Question Data Models
 
-Create `src/data/questionsData.ts`. This file defines the TypeScript interfaces for our 3 question types, provides default fallback questions, and houses the `saveQuestions` API wrapper. We wrap the questions in a `TestDataPayload` to securely save test configuration settings to the database.
+Create `src/data/questionsData.ts`. This file defines the TypeScript interfaces for our 3 question types, provides default fallback questions, and houses the `loadQuestions` and `saveQuestions` API wrappers.
+
+The `Question` type is a **union type** — `MultipleChoiceQuestion | MultipleAnswerQuestion | EssayQuestion`. TypeScript union types let a value be one of several named types. Throughout the app, when we have a `Question` and need to access type-specific fields like `options` or `correctIndex`, TypeScript requires us to first narrow the type with a check like `if (q.type === 'multiple-choice')` or a cast like `q as MultipleChoiceQuestion`. This prevents runtime errors from accessing properties that don't exist on all question variants.
+
+The `TestDataPayload` wrapper (`{ settings: TestConfig, questions: Question[] }`) is what gets serialized to JSON and stored as the single `data` string in Appwrite. Wrapping both together means a single save and load operation atomically updates all configuration — there's no risk of settings and questions going out of sync.
 
 ```typescript
 import { ExecutionMethod } from 'appwrite';
@@ -88,7 +96,8 @@ async function executeWithRetry(body: string): Promise<string | null> {
             const result = await functions.createExecution(
                 VERIFY_FUNCTION_ID,
                 body,
-                false, // Synchronous mode internally handles the execution wait list
+                false, // false = synchronous execution: we await the function's response inline.
+                       // true would fire the function asynchronously and return immediately without a result.
                 undefined,
                 ExecutionMethod.POST,
             );
@@ -102,9 +111,12 @@ async function executeWithRetry(body: string): Promise<string | null> {
     return null;
 }
 
-```typescript
 export async function loadQuestions(code: string): Promise<TestDataPayload> {
     const responseBody = await executeWithRetry(
+        // The backend function only explicitly routes on action === 'save-questions'.
+        // Any other value (including 'load-questions') falls through to the default path,
+        // which verifies the code and returns preloaded questions. The 'load-questions'
+        // value is included for clarity, not because the server checks it specifically.
         JSON.stringify({ code, action: 'load-questions' }),
     );
 
@@ -147,27 +159,71 @@ export async function saveQuestions(code: string, payload: TestDataPayload): Pro
 
 ## 3. Email Delivery Service
 
-Create `src/services/emailService.ts` to assemble the graded answers and fire off the delivery request.
+Create `src/services/emailService.ts`. This file has two responsibilities: grading the student's answers by comparing them against the stored correct answers, and sending the formatted report to the `send-test-results` cloud function.
+
+Note that `formatResults` calls `loadQuestions` to fetch the current questions from the server at submission time. This is intentional — it ensures the grading is always done against the authoritative server copy of the questions and correct answers, not a client-side snapshot that could theoretically be tampered with.
 
 ```typescript
+import { loadQuestions, type MultipleChoiceQuestion, type MultipleAnswerQuestion } from '../data/questionsData';
 import { ExecutionMethod } from 'appwrite';
 import { functions, SEND_RESULTS_FUNCTION_ID } from './appwrite';
-import type { Question } from '../data/questionsData';
 
-// formatResults loads the current questions from the server (via the access code),
-// grades the student's answers, and also extracts the configured recipient list from
-// the test settings — returning both so sendResults can forward them to the cloud function.
-async function formatResults(
-    answers: Record<number, string | string[]>,
-    studentName: string,
-    code: string
-): Promise<{ message: string; recipients: string[] }> {
+type Answers = Record<number, string | string[]>;
+
+// formatResults loads the questions from the server, grades each answer,
+// and returns the plain-text report alongside the configured recipient list.
+async function formatResults(answers: Answers, studentName: string, code: string): Promise<{ message: string; recipients: string[] }> {
     const payload = await loadQuestions(code);
     const questions = payload.questions;
     const recipients = payload.settings?.recipientEmails ?? [];
+    const lines: string[] = [];
+    let mcCorrect = 0;
+    let mcTotal = 0;
 
-    // ... grading logic: compare answers against questions.correctIndex/Indices ...
-    // ... build lines[] array with per-question results ...
+    for (const q of questions) {
+        if (q.type === 'multiple-choice') {
+            mcTotal++;
+            const mc = q as MultipleChoiceQuestion;
+            const answer = (answers[q.id] as string) || '(no answer)';
+            const correctOption = mc.options[mc.correctIndex];
+            const isCorrect = answer === correctOption;
+            if (isCorrect) mcCorrect++;
+
+            lines.push(
+                `Q${q.id} [Multiple Choice] ${isCorrect ? '✓ CORRECT' : '✗ INCORRECT'}`,
+                `  Prompt: ${q.prompt}`,
+                `  Selected: ${answer}`,
+                `  Correct Answer: ${correctOption}`,
+                ''
+            );
+        } else if (q.type === 'multiple-answer') {
+            mcTotal++;
+            const ma = q as MultipleAnswerQuestion;
+            const selected = (answers[q.id] as string[]) || [];
+            const correctOptions = ma.correctIndices.map((i) => ma.options[i]);
+            const isCorrect =
+                selected.length === correctOptions.length &&
+                correctOptions.every((o) => selected.includes(o));
+            if (isCorrect) mcCorrect++;
+
+            lines.push(
+                `Q${q.id} [Multiple Answer] ${isCorrect ? '✓ CORRECT' : '✗ INCORRECT'}`,
+                `  Prompt: ${q.prompt}`,
+                `  Selected: ${selected.length > 0 ? selected.join(', ') : '(no answer)'}`,
+                `  Correct Answers: ${correctOptions.join(', ')}`,
+                ''
+            );
+        } else {
+            // Essay questions are not graded — they are included as-is for the teacher to review
+            const answer = (answers[q.id] as string) || '(no answer)';
+            lines.push(
+                `Q${q.id} [Essay]`,
+                `  Prompt: ${q.prompt}`,
+                `  Answer: ${answer}`,
+                ''
+            );
+        }
+    }
 
     const header = [
         '═══════════════════════════════════',
@@ -175,39 +231,54 @@ async function formatResults(
         '═══════════════════════════════════',
         `Student: ${studentName}`,
         `Submitted: ${new Date().toLocaleString()}`,
-        // score line, etc.
+        `Multiple Choice Score: ${mcCorrect}/${mcTotal}`,
         '',
         '───────────────────────────────────',
         '',
     ];
 
-    return { message: [...header /*, ...lines */].join('\n'), recipients };
+    return { message: [...header, ...lines].join('\n'), recipients };
 }
 
-// sendResults is the public API called by TestPage on submission.
-// It formats the results, then fires them at the send-test-results Appwrite function,
-// passing the recipient list so the cloud function knows where to send the email.
-export async function sendResults(
-    answers: Record<number, string | string[]>,
-    studentName: string,
-    code: string
-): Promise<void> {
+// sendResults is the public function called by TestPage on submission.
+// It formats the results, then sends them to the send-test-results cloud function
+// with retry logic in case of cold-start timeouts.
+export async function sendResults(answers: Answers, studentName: string, code: string): Promise<void> {
     const { message: formattedResults, recipients } = await formatResults(answers, studentName, code);
+    let retryCount = 0;
+    const maxRetries = 3;
+    let success = false;
 
-    const result = await functions.createExecution(
-        SEND_RESULTS_FUNCTION_ID,
-        JSON.stringify({
-            subject: `Assessment Test Results – ${studentName}`,
-            message: formattedResults,
-            recipients,  // forwarded to the cloud function; empty array triggers the fallback
-        }),
-        false,
-        undefined,
-        ExecutionMethod.POST
-    );
+    while (retryCount < maxRetries && !success) {
+        try {
+            const result = await functions.createExecution(
+                SEND_RESULTS_FUNCTION_ID,
+                JSON.stringify({
+                    subject: `Assessment Test Results – ${studentName}`,
+                    message: formattedResults,
+                    recipients, // forwarded to the cloud function; empty array triggers the fallback address
+                }),
+                false,
+                undefined,
+                ExecutionMethod.POST,
+            );
 
-    if (result.status === 'failed') throw new Error('Appwrite execution failed');
-    const parsed = JSON.parse(result.responseBody);
-    if (!parsed.ok) throw new Error(parsed.error || 'Failed to send email');
+            if (result.status === 'failed') {
+                throw new Error('Appwrite execution failed (cold start timeout)');
+            }
+
+            if (result.responseBody) {
+                const parsed = JSON.parse(result.responseBody);
+                if (!parsed.ok) throw new Error(parsed.error || 'Unknown error from function');
+                success = true;
+            } else {
+                success = true; // no body but no failure — treat as success
+            }
+        } catch (err) {
+            retryCount++;
+            if (retryCount >= maxRetries) throw err;
+            await new Promise(r => setTimeout(r, 1000));
+        }
+    }
 }
 ```

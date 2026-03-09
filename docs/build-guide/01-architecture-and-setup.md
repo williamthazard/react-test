@@ -42,9 +42,23 @@ npm install appwrite framer-motion
 npm install ionicons
 ```
 
+### Loading the Application Fonts
+
+The Tailwind config references two Google Fonts — **Inter** (body text) and **Outfit** (headings). Add the following `<link>` tags to the `<head>` of your `index.html` to load them:
+
+```html
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+```
+
+`rel="preconnect"` tells the browser to open the connection to Google's font servers as early as possible, reducing latency. `display=swap` ensures text renders immediately in a fallback font and swaps in once Inter/Outfit have loaded, preventing a flash of invisible text.
+
 ### Configuring Tailwind CSS
 
 Update your `tailwind.config.js` to define our custom color palette and animations. We use a custom "PIT" brand theme:
+
+The `content` array tells Tailwind which files to scan when building the final CSS bundle. Tailwind works by scanning your source files for class names and generating only the CSS that's actually used — if a file isn't listed here, any Tailwind classes it contains will be stripped from the production build. The `theme.extend` key merges our custom values into Tailwind's defaults rather than replacing them, so all built-in utilities (like `flex`, `hidden`, `rounded`) remain available alongside our custom `pit-blue`, `pit-yellow`, etc.
 
 ```javascript
 /** @type {import('tailwindcss').Config} */
@@ -109,6 +123,8 @@ Update your `src/index.css` to import Tailwind's directives:
 }
 ```
 
+The three `@tailwind` directives inject Tailwind's base reset styles, any component classes, and all utility classes into the compiled CSS. The `@layer base` block lets us apply default styles to HTML elements without increasing specificity — `@apply` translates Tailwind class names into their equivalent CSS properties at build time, keeping the source readable. We set `antialiased` (smooth font rendering), `text-pit-grey` (our base text colour), and `bg-[#e8edf5]` (the light blue-grey page background) as body-level defaults.
+
 ## 3. Setting Up Ionicons
 
 We use [Ionicons](https://ionic.io/ionicons) for consistent, readable icons throughout the application. Instead of embedding raw SVG paths in our components, Ionicons provides semantic icon names that make the code much easier to understand.
@@ -157,7 +173,7 @@ export const setupAllIcons = () => {
 
 ### TypeScript Declarations
 
-Create `src/icons/types.d.ts` to enable TypeScript support for the `ion-icon` web component:
+Create `src/icons/types.d.ts` to enable TypeScript support for the `ion-icon` web component. By default, TypeScript doesn't know that `<ion-icon>` is a valid JSX element — it only knows about standard HTML tags and React components. This file teaches it:
 
 ```typescript
 // types.d.ts
@@ -178,6 +194,8 @@ declare module 'react' {
     }
 }
 ```
+
+`declare module 'react'` reopens the existing React module declaration so we can extend it. `namespace JSX` and `interface IntrinsicElements` are where TypeScript looks to find what HTML/custom elements are valid in JSX. By adding `'ion-icon'` here with its allowed attributes (`name`, `size`, plus all standard HTML attributes), TypeScript will type-check our icon usage and provide autocomplete.
 
 ### Initialize Icons in main.tsx
 
@@ -253,18 +271,19 @@ Log into your Appwrite Cloud console and create a new project.
 ### Database Setup
 1. Create a database named `test-app-db`.
 2. Inside the database, create a collection named `questions`.
-3. **Permissions**: Leave collection permissions completely blank. No one should be granted any read or write access here.
-4. Create a single String attribute named `data` (size: 16777216 — 16MB limit to hold base64 image strings).
+3. **Permissions**: Leave collection permissions completely blank. No one should be granted any read or write access here. This is the foundation of the security model — the client SDK will be completely unable to query the database directly, even if a student inspects the network tab.
+4. Create a single String attribute named `data` with a size of **16777216** (16 MB). This single attribute will hold the entire serialized JSON payload — all questions, settings, and base64-encoded images combined. 16 MB is chosen because base64 encoding inflates image data by ~33%, and we compress images to JPEG at 800px/70% quality (Part 5), keeping the total well within this limit in practice.
+
+> **Why one big attribute instead of one document per question?** A normalized schema (one document per question) would require many separate API calls to read and write, each of which could hit a cold-start delay. By storing the entire dataset as a single JSON string in one document, every read and write is a single network round-trip. The tradeoff is that we can't query individual questions by field — but we never need to. We always load the full set.
 
 ### API Key Generation
-1. Go to "Overview" -> "Integrate with your server" -> "API Keys".
+1. Go to "Overview" → "Integrate with your server" → "API Keys".
 2. Create an API key named `Function Key`.
 3. Grant it the following scopes:
-   - `databases.read`
-   - `databases.write`
-   - `collections.read`
-   - `collections.write`
-   - `documents.read`
-   - `documents.write`
+   - `databases.read` / `databases.write` — read and write to the database itself
+   - `collections.read` / `collections.write` — read the collection schema (needed by the SDK to validate document structure)
+   - `documents.read` / `documents.write` — read and write individual documents (this is the permission that actually matters at runtime)
+
+All six scopes are needed because Appwrite's API key permission model is hierarchical — the `documents.*` operations require the parent `collections.*` and `databases.*` permissions to be granted as well. Without all six, document reads and writes will fail with a 401 error even though the API key exists.
 
 Save the Project ID and the API Key. You will need these for the Serverless Functions in the next section.

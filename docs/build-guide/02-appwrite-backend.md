@@ -19,8 +19,6 @@ In your Appwrite project, create a new Node.js function. Set the following Envir
 ### Function Code (`src/main.js`)
 
 ```javascript
-import fetch from 'node-fetch'; // Appwrite Node 18 runtime has global fetch, but explicit is fine
-
 const DATABASE_ID = 'test-app-db';
 const COLLECTION_ID = 'questions';
 const ENDPOINT = 'https://nyc.cloud.appwrite.io/v1';
@@ -39,9 +37,12 @@ function getDbConfig(log) {
     return { baseUrl, headers };
 }
 
-// Helper to fetch the single questions document
+// Helper to fetch the single questions document.
+// We call this from both the verify path (to preload questions) and the save path
+// (to check whether a document already exists so we know to PATCH vs POST).
 async function listDocs(baseUrl, headers, log) {
-    // Note: Appwrite 1.8+ requires JSON encoded queries, NOT raw strings like limit(1)
+    // Appwrite 1.8+ requires queries to be JSON-encoded objects, not raw strings like "limit(1)".
+    // The query object format is { method: 'limit', values: [1] }.
     const limitQ = JSON.stringify({ method: 'limit', values: [1] });
     const url = `${baseUrl}?queries[]=${encodeURIComponent(limitQ)}`;
     
@@ -81,14 +82,17 @@ export default async ({ req, res, log, error }) => {
             const doc = await listDocs(baseUrl, headers, log);
 
             if (doc) {
-                // Update existing document
+                // PATCH updates an existing document in place — we pass the document's $id
+                // in the URL and only send the fields we want to change.
                 await fetch(`${baseUrl}/${doc.$id}`, {
                     method: 'PATCH',
                     headers,
                     body: JSON.stringify({ data: { data: dataStr } }),
                 });
             } else {
-                // Create new document
+                // POST creates a new document. 'unique()' is a special Appwrite string that
+                // tells the server to auto-generate a unique document ID — we don't need to
+                // track or predict it because listDocs will always find it by querying the collection.
                 await fetch(baseUrl, {
                     method: 'POST',
                     headers,
@@ -129,7 +133,9 @@ export default async ({ req, res, log, error }) => {
 };
 ```
 
-**Important Deployment Note:** Serverless functions can suffer from "cold starts" (taking seconds to boot up after being idle). In the Appwrite console, upgrade this function's specification from `s-0.5vcpu-512mb` to `s-1vcpu-1gb` and set its **Timeout to 120 seconds**. This prevents errors where Appwrite forcefully terminates synchronous HTTP calls during slow cold starts.
+**Cold Starts and Deployment Sizing:** Serverless functions run in containers that are spun up on demand and shut down after a period of inactivity. The first request after a period of idle time incurs a "cold start" penalty — the container has to boot, load the Node.js runtime, and execute the module before it can process the request. On the default `s-0.5vcpu-512mb` specification, this can take 3–8 seconds, which is long enough for Appwrite's synchronous execution timeout to fire and kill the request before a response is sent.
+
+In the Appwrite console, upgrade this function's specification to `s-1vcpu-1gb` and set its **Timeout to 120 seconds**. The larger spec boots faster. The longer timeout ensures that even a slow cold start completes before Appwrite terminates the execution. The `AccessCodeWall` component (Part 4) also fires a background warm-up request on page load to further reduce the chance of a cold start hitting a real user action.
 
 ## 2. The Email Proxy (`send-test-results`)
 
@@ -192,4 +198,47 @@ export default async ({ req, res, log, error }) => {
 };
 ```
 
-Deploy both functions using the Appwrite CLI (`npx appwrite functions create-deployment ...`) to ensure your local code correctly maps to the server.
+### Deploying the Functions
+
+Each function's source code lives in its own folder under `functions/`. Each folder needs a `package.json` that declares ES module support:
+
+```json
+{
+    "name": "send-test-results",
+    "version": "1.0.0",
+    "type": "module",
+    "main": "src/main.js"
+}
+```
+
+The `"type": "module"` field is essential — without it, Node.js treats `.js` files as CommonJS and the `export default` syntax in `main.js` will throw a syntax error at runtime.
+
+Your project root needs an `appwrite.json` file with your Project ID:
+
+```json
+{
+    "projectId": "YOUR_PROJECT_ID"
+}
+```
+
+Then deploy each function from its own directory using the Appwrite CLI:
+
+```bash
+# Deploy verify-access-code
+cd functions/verify-access-code
+appwrite functions create-deployment \
+  --function-id verify-access-code \
+  --entrypoint src/main.js \
+  --code . \
+  --activate true
+
+# Deploy send-test-results
+cd ../send-test-results
+appwrite functions create-deployment \
+  --function-id 699debf48829a77a155d \
+  --entrypoint src/main.js \
+  --code . \
+  --activate true
+```
+
+`--activate true` sets the new deployment as the live version immediately. You can find your function IDs in the Appwrite console under Functions → [function name] → Settings → Function ID. After deploying, verify in the console that the deployment status shows "Ready" before testing the application.

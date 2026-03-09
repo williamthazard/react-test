@@ -21,7 +21,13 @@ import {
 
 type QuestionType = 'multiple-choice' | 'multiple-answer' | 'essay';
 
-// Generate stable IDs for options (used for Reorder keys)
+// Why stable option IDs?
+// Framer Motion's Reorder.Item uses its `key` prop to track DOM identity across renders.
+// If we used the option's array index as the key, every keypress in a text input would
+// cause React to re-mount that input (because the values array changes, shifting indices),
+// which resets the cursor to the end of the field. By assigning each option a stable,
+// never-changing ID on creation and using that as the key instead, the DOM element is
+// preserved across re-renders and the cursor stays where the user left it.
 let optionIdCounter = 0;
 const generateOptionId = () => `opt-${++optionIdCounter}`;
 
@@ -57,10 +63,15 @@ export default function TestEditor({ code, initialPayload }: { code: string; ini
     const [emailInput, setEmailInput] = useState('');
     const [draggingOver, setDraggingOver] = useState<number | null>(null);
     const [uploadingImage, setUploadingImage] = useState<number | null>(null);
+    // useRef is used instead of useState for both fileInputRefs and optionIdsRef because
+    // neither needs to trigger a re-render when it changes. Refs are mutable containers
+    // that persist across renders without causing them — perfect for things like DOM node
+    // references and tracking data that is only needed at interaction time.
     const fileInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
-    // Track stable IDs for options to enable both editing and reordering
-    // Map: questionId -> array of option IDs (same length as options array)
+    // Map: questionId -> array of stable option IDs (same length as the options array).
+    // This lives in a ref rather than state because changing it should never trigger a render;
+    // it is only read during render to supply the `key` prop to each Reorder.Item.
     const optionIdsRef = useRef<Record<number, string[]>>({});
 
     // Helper to get or create option IDs for a question
@@ -110,11 +121,16 @@ export default function TestEditor({ code, initialPayload }: { code: string; ini
 The editor relies on a small suite of functional helpers to dispatch ephemeral UI feedback and immutable state updates to the questions array.
 
 ```tsx
+// showToast sets the toast message and schedules its removal after 3 seconds.
+// The toast state is null when hidden and { type, message } when visible.
 const showToast = (type: 'success' | 'error', message: string) => {
     setToast({ type, message });
     setTimeout(() => setToast(null), 3000);
 };
 
+// updateQuestion replaces one question in the array immutably.
+// We use the functional form of setQuestions (passing a callback) so that the update
+// is always based on the latest state, not a stale closure value.
 const updateQuestion = (index: number, updated: Question) => {
     setQuestions((prev) => prev.map((q, i) => (i === index ? updated : q)));
 };
@@ -127,7 +143,10 @@ const changeType = (index: number, newType: QuestionType) => {
     const q = questions[index];
     if (q.type === newType) return;
     const converted = createBlankQuestion(q.id, newType);
-    converted.prompt = q.prompt;
+    converted.prompt = q.prompt; // always preserve the prompt text
+    // If switching between the two option-based types (multiple-choice ↔ multiple-answer),
+    // preserve the existing option strings. If switching to or from essay (which has no options),
+    // let createBlankQuestion supply fresh empty options.
     if (newType !== 'essay' && q.type !== 'essay') {
         const opts = (q as MultipleChoiceQuestion | MultipleAnswerQuestion).options;
         (converted as MultipleChoiceQuestion | MultipleAnswerQuestion).options = [...opts];
@@ -162,9 +181,19 @@ const removeRecipient = (email: string) => {
 };
 
 const deleteQuestion = (index: number) => {
-    if (questions.length <= 1) return;
+    if (questions.length <= 1) return; // prevent deleting the last question
     setQuestions((prev) => prev.filter((_, i) => i !== index));
     setConfirmDelete(null);
+};
+
+// handleReset restores the default question set and clears config.
+// It does NOT save automatically — the editor must click Save to persist the reset.
+// This is intentional: it gives the teacher a chance to cancel by refreshing the page.
+const handleReset = () => {
+    setQuestions([...defaultQuestions]);
+    setConfig({});
+    setConfirmReset(false);
+    showToast('success', 'Reset to default questions. Click Save to persist.');
 };
 
 // ── Option Handlers ──
@@ -182,9 +211,9 @@ const addOption = (qIndex: number) => {
 
 const deleteOption = (qIndex: number, oIndex: number) => {
     const q = questions[qIndex] as MultipleChoiceQuestion | MultipleAnswerQuestion;
-    if (q.options.length <= 2) return;
+    if (q.options.length <= 2) return; // minimum 2 options enforced
 
-    // Remove the option ID
+    // Remove the stable ID for the deleted option so the ref stays in sync
     if (optionIdsRef.current[q.id]) {
         optionIdsRef.current[q.id] = optionIdsRef.current[q.id].filter((_, i) => i !== oIndex);
     }
@@ -193,14 +222,20 @@ const deleteOption = (qIndex: number, oIndex: number) => {
     if (q.type === 'multiple-choice') {
         const mc = q as MultipleChoiceQuestion;
         let newCorrect = mc.correctIndex;
+        // If the deleted option WAS the correct answer, reset to 0.
+        // If the deleted option was BEFORE the correct answer, shift the index down by 1
+        // because all subsequent options have moved one position earlier.
         if (oIndex === newCorrect) newCorrect = 0;
         else if (oIndex < newCorrect) newCorrect--;
         updateQuestion(qIndex, { ...mc, options: newOpts, correctIndex: newCorrect });
     } else {
         const ma = q as MultipleAnswerQuestion;
+        // Same idea for multiple-answer: remove the deleted index from correctIndices,
+        // and decrement any index that was after the deleted position.
         const newCorrectIndices = ma.correctIndices
             .filter((ci) => ci !== oIndex)
             .map((ci) => (ci > oIndex ? ci - 1 : ci));
+        // If all correct answers were deleted (edge case), default to [0]
         updateQuestion(qIndex, { ...ma, options: newOpts, correctIndices: newCorrectIndices.length ? newCorrectIndices : [0] });
     }
 };
@@ -280,7 +315,9 @@ const reorderOptions = (qIndex: number, newOptions: string[]) => {
 
 A core feature of the editor is the ability to attach images to question stems. To maintain security and avoid configuring public storage buckets, images are compressed and converted to Base64 data URLs right in the browser, then saved directly inside the `Question` JSON object.
 
-We use an HTML `<canvas>` to resize the image to a maximum dimension of 800px and compress it as a JPEG at 70% quality:
+We use an HTML `<canvas>` to resize the image to a maximum dimension of 800px and compress it as a JPEG at 70% quality. The pipeline is: `File` → `FileReader` (converts to a data URL string) → `Image` (loads the data URL so we can get dimensions) → `canvas` (draws and re-encodes at reduced quality).
+
+`compressImage` is wrapped in `useCallback` so that its reference stays stable across re-renders. This matters because `handleImageFile` depends on it — if `compressImage` got a new reference every render, `handleImageFile` would also get a new reference, potentially breaking memoization further up the tree.
 
 ```tsx
 const compressImage = useCallback((file: File): Promise<string> => {
@@ -337,7 +374,9 @@ const removeImage = (qIndex: number) => {
 
 ## Drag-and-Drop Handlers
 
-The editor allows users to drag an image file from their desktop directly onto the text area of a question. We wrap the text area in a container that listens to HTML DOM drop events:
+The editor allows users to drag an image file from their desktop directly onto the text area of a question. We wrap the text area in a container that listens to HTML DOM drop events.
+
+`e.preventDefault()` in `handleDragOver` is critical — browsers block `drop` events by default to prevent malicious pages from intercepting file drags. Calling `preventDefault()` on the `dragover` event opts the element in as a valid drop target. Without it, `handleDrop` will never fire.
 
 ```tsx
 const handleDragOver = (e: React.DragEvent, qIndex: number) => {
@@ -376,9 +415,44 @@ const handleSave = async () => {
 };
 ```
 
+## Early Returns
+
+Before the main render, we handle loading and error states with early returns — the same pattern used in TestPage:
+
+```tsx
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#e8edf5] via-[#dde4f0] to-[#d0d9eb]">
+                <div className="text-pit-blue text-lg font-semibold animate-pulse">Loading editor…</div>
+            </div>
+        );
+    }
+
+    if (loadError) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#e8edf5] via-[#dde4f0] to-[#d0d9eb]">
+                <div className="text-center p-8 rounded-2xl bg-white/40 backdrop-blur-xl border border-white/40 shadow-xl max-w-md">
+                    <p className="text-pit-grey font-semibold mb-3">Failed to load questions</p>
+                    <p className="text-sm text-gray-500 mb-5">The server may be warming up. Please try again.</p>
+                    <button onClick={doLoad} className="px-6 py-2.5 rounded-xl bg-pit-blue text-white font-semibold shadow-md hover:shadow-lg transition-all">
+                        Retry
+                    </button>
+                </div>
+            </div>
+        );
+    }
+```
+
 ## Render Structure
 
-With state tracking and handlers defined, the `TestEditor` finally returns the JSX component tree. The UI is wrapped in a `<Reorder.Group>` which maps over each question to attach the handlers we defined above:
+With state tracking and handlers defined, the `TestEditor` returns the JSX component tree. A few structural notes before reading the JSX:
+
+- **`Reorder.Group`** wraps the questions array. `axis="y"` constrains dragging to the vertical axis. `values={questions}` tells Framer Motion the current order. `onReorder={setQuestions}` is called with the new order after a drag completes — it replaces the entire array in one state update.
+- **`Reorder.Item`** must use `key={q.id}` — the question's stable numeric ID — rather than the array index. If we used the index, React would re-mount components as they moved rather than animate them, breaking the drag-and-drop.
+- **`style={{ y: 0 }}`** on each `Reorder.Item` resets the Framer Motion y-transform after a drag, preventing the item from staying visually offset from its layout position.
+- **The custom checkbox** (the "Randomize question order" toggle) uses Tailwind's `peer` utility. The actual `<input type="checkbox">` is hidden with `sr-only` (removed from the visual flow but still accessible). The styled `<div>` next to it uses `peer-checked:` variants to change appearance when the hidden checkbox is checked. This gives full keyboard and screen-reader accessibility while using custom visual styling.
+
+The UI is wrapped in a `<Reorder.Group>` which maps over each question:
 
 ```tsx
     const typeLabels: Record<QuestionType, string> = {
@@ -542,6 +616,7 @@ With state tracking and handlers defined, the `TestEditor` finally returns the J
                         </button>
                     </div>
                 </div>
+            </div>{/* end Global Settings container */}
 
             {/* Questions */}
             <main className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 py-4 space-y-6">
