@@ -8,12 +8,21 @@ The frontend uses standard TypeScript models and a dedicated service layer to in
 
 Create a file `src/services/appwrite.ts`. This initializes the Appwrite SDK client and exports references to it that every other service file imports. Centralizing initialization here means there is exactly one client instance in the entire app.
 
+Before writing this file, create a `.env` file at your project root (it is already in `.gitignore` — never commit real credentials to version control):
+
+```
+VITE_APPWRITE_PROJECT_ID=your-appwrite-project-id
+VITE_SEND_RESULTS_FUNCTION_ID=your-send-results-function-id
+```
+
+Vite automatically loads `.env` at build time and makes any variable prefixed with `VITE_` available in your code as `import.meta.env.VITE_VARIABLE_NAME`. This keeps your credentials out of source control while still letting the app use them. You can also commit a `.env.example` file with placeholder values as a template for other developers.
+
 ```typescript
 import { Client, Functions, Databases } from 'appwrite';
 
 const client = new Client()
-    .setEndpoint('https://nyc.cloud.appwrite.io/v1') // Your Appwrite Endpoint
-    .setProject('YOUR_PROJECT_ID'); // Replace with your Project ID
+    .setEndpoint('https://nyc.cloud.appwrite.io/v1')
+    .setProject(import.meta.env.VITE_APPWRITE_PROJECT_ID);
 
 export const functions = new Functions(client);
 export const databases = new Databases(client);
@@ -22,7 +31,7 @@ export const databases = new Databases(client);
 // The verify-access-code function uses its name as its ID if you created it that way;
 // the send-test-results function will have an auto-generated alphanumeric ID.
 export const VERIFY_FUNCTION_ID = 'verify-access-code';
-export const SEND_RESULTS_FUNCTION_ID = 'your-send-results-function-id';
+export const SEND_RESULTS_FUNCTION_ID = import.meta.env.VITE_SEND_RESULTS_FUNCTION_ID;
 ```
 
 > **Note on the `databases` export:** The `Databases` object is initialized and exported from `appwrite.ts` but is not used by any of our frontend code — all database access goes through the serverless functions. It is exported for completeness in case you want to add a direct database query in the future, but you can omit it and only keep the `Functions` export if you prefer a leaner setup.

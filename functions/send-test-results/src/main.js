@@ -1,6 +1,6 @@
-const POSTAL_URL = 'https://postal.msg.williamhazard.co/api/v1/send/message';
-const FALLBACK_RECIPIENT = 'spencer.graham@pit.edu';
-const SENDER = 'PIT.test@msg.williamhazard.co';
+const POSTAL_URL = 'https://postal.msg.yourdomain.com/api/v1/send/message';
+const FALLBACK_RECIPIENT = 'teacher@school.edu';
+const SENDER = 'noreply@yourdomain.com';
 
 export default async ({ req, res, log, error }) => {
     // Only accept POST

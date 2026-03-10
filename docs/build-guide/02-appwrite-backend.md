@@ -11,8 +11,8 @@ This function is the most complex piece of the backend. It serves three purposes
 
 ### Prerequisites
 In your Appwrite project, create a new Node.js function. Set the following Environment Variables in the function settings:
-- `ACCESS_CODE` (e.g. `TEST2026`)
-- `EDITOR_CODE` (e.g. `EDIT2026`)
+- `ACCESS_CODE` (e.g. `STUDENT-CODE-HERE`)
+- `EDITOR_CODE` (e.g. `EDITOR-CODE-HERE`)
 - `APPWRITE_API_KEY` (The server API key created in Part 1)
 - `APPWRITE_FUNCTION_PROJECT_ID` (Added automatically by Appwrite)
 
@@ -139,7 +139,7 @@ export default async ({ req, res, log, error }) => {
 
 **Destructured function parameters** — `export default async ({ req, res, log, error }) => {` receives a single context object from Appwrite and immediately destructures it into named variables. This is equivalent to `async (context) => { const { req, res, log, error } = context; ... }`. Appwrite calls your function with this exact object shape; the names `req`, `res`, `log`, and `error` are Appwrite's API contract — use these exact names.
 
-**`process.env`** — In Node.js, `process.env` is a global object containing all environment variables configured for the running process. When you set `ACCESS_CODE = TEST2026` in the Appwrite console under the function's settings, it becomes readable inside the function as `process.env.ACCESS_CODE`. This is the standard, secure way to supply secrets to server-side code — the values never appear in source files or version control.
+**`process.env`** — In Node.js, `process.env` is a global object containing all environment variables configured for the running process. When you set `ACCESS_CODE = STUDENT-CODE-HERE` in the Appwrite console under the function's settings, it becomes readable inside the function as `process.env.ACCESS_CODE`. This is the standard, secure way to supply secrets to server-side code — the values never appear in source files or version control.
 
 **Defensive body parsing** — `typeof req.body === 'string' ? JSON.parse(req.body) : req.body` handles an Appwrite runtime quirk. When invoked through the Appwrite SDK (as our frontend does), the body may arrive as a pre-parsed JavaScript object. When called directly over HTTP, it arrives as a raw JSON string. The ternary covers both cases by only calling `JSON.parse` when needed.
 
@@ -247,7 +247,7 @@ appwrite functions create-deployment \
 # Deploy send-test-results
 cd ../send-test-results
 appwrite functions create-deployment \
-  --function-id 699debf48829a77a155d \
+  --function-id your-send-results-function-id \
   --entrypoint src/main.js \
   --code . \
   --activate true
