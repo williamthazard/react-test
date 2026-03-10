@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import JSZip from 'jszip';
 import TestPage from './TestPage';
 import {
     type Question,
@@ -314,38 +315,81 @@ export default function TestEditor({ code, initialPayload }: { code: string; ini
         showToast('success', 'Reset to default questions. Click Save to persist.');
     };
 
-    const handleExport = () => {
-        const payload: TestDataPayload = { settings: config, questions };
-        const json = JSON.stringify(payload, null, 2);
-        const blob = new Blob([json], { type: 'application/json' });
+    const handleExport = async () => {
+        const zip = new JSZip();
+        const imagesFolder = zip.folder('images')!;
+
+        // Replace base64 imageUrls with file paths; write image files into the ZIP
+        const exportedQuestions = questions.map(q => {
+            if (!q.imageUrl?.startsWith('data:')) return q;
+            const [header, base64Data] = q.imageUrl.split(',');
+            const mimeType = header.split(':')[1].split(';')[0]; // e.g. "image/jpeg"
+            const ext = mimeType.split('/')[1];                   // e.g. "jpeg"
+            const filename = `q${q.id}.${ext}`;
+            imagesFolder.file(filename, base64Data, { base64: true });
+            return { ...q, imageUrl: `images/${filename}` };
+        });
+
+        zip.file('assessment.json', JSON.stringify({ settings: config, questions: exportedQuestions }, null, 2));
+        const blob = await zip.generateAsync({ type: 'blob' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `assessment-${new Date().toISOString().slice(0, 10)}.json`;
+        a.download = `assessment-${new Date().toISOString().slice(0, 10)}.zip`;
         a.click();
         URL.revokeObjectURL(url);
     };
 
-    const handleImport = (file: File) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
+    const handleImport = async (file: File) => {
+        if (file.name.endsWith('.zip')) {
             try {
-                const parsed = JSON.parse(e.target?.result as string);
-                if (Array.isArray(parsed)) {
-                    setQuestions(parsed);
-                    setConfig({});
-                } else if (parsed.questions) {
-                    setQuestions(parsed.questions);
-                    setConfig(parsed.settings ?? {});
-                } else {
-                    throw new Error('Unrecognized format');
-                }
+                const zip = await JSZip.loadAsync(file);
+                const jsonFile = zip.file('assessment.json');
+                if (!jsonFile) throw new Error('No assessment.json found in ZIP');
+
+                const parsed = JSON.parse(await jsonFile.async('string'));
+                let loadedQuestions: Question[] = Array.isArray(parsed) ? parsed : (parsed.questions ?? []);
+                const loadedSettings = Array.isArray(parsed) ? {} : (parsed.settings ?? {});
+
+                // Resolve image paths back to base64 data URLs
+                loadedQuestions = await Promise.all(loadedQuestions.map(async (q) => {
+                    if (!q.imageUrl || q.imageUrl.startsWith('data:')) return q;
+                    const imageFile = zip.file(q.imageUrl);
+                    if (!imageFile) return q; // referenced image missing — keep path as-is
+                    const base64 = await imageFile.async('base64');
+                    const ext = q.imageUrl.split('.').pop()?.toLowerCase() ?? 'jpeg';
+                    const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+                    return { ...q, imageUrl: `data:${mime};base64,${base64}` };
+                }));
+
+                setQuestions(loadedQuestions);
+                setConfig(loadedSettings);
                 showToast('success', 'Imported successfully. Click Save to persist.');
-            } catch {
-                showToast('error', 'Invalid file — could not parse JSON.');
+            } catch (err) {
+                showToast('error', err instanceof Error ? err.message : 'Could not read ZIP file.');
             }
-        };
-        reader.readAsText(file);
+        } else {
+            // Plain JSON fallback (backward compatible)
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const parsed = JSON.parse(e.target?.result as string);
+                    if (Array.isArray(parsed)) {
+                        setQuestions(parsed);
+                        setConfig({});
+                    } else if (parsed.questions) {
+                        setQuestions(parsed.questions);
+                        setConfig(parsed.settings ?? {});
+                    } else {
+                        throw new Error('Unrecognized format');
+                    }
+                    showToast('success', 'Imported successfully. Click Save to persist.');
+                } catch {
+                    showToast('error', 'Invalid file — could not parse JSON.');
+                }
+            };
+            reader.readAsText(file);
+        }
     };
 
     if (loading) {
@@ -422,7 +466,7 @@ export default function TestEditor({ code, initialPayload }: { code: string; ini
                         <input
                             ref={importJsonRef}
                             type="file"
-                            accept=".json"
+                            accept=".zip,.json"
                             className="hidden"
                             onChange={(e) => {
                                 const file = e.target.files?.[0];

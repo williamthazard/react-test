@@ -503,25 +503,76 @@ The overlay uses `fixed inset-0` to cover the entire viewport and `overflow-y-au
 
 ## Import and Export
 
-Import and export let a teacher back up their question set as a JSON file and restore it later — or move questions between different app instances.
+Import and export let a teacher back up their full question set — including images — as a ZIP archive that they can open, edit, and re-import. This is the format:
+
+```
+assessment-2026-03-10.zip
+├── assessment.json        ← human-readable; edit this in any text editor
+└── images/
+    ├── q1.jpg             ← one file per question that has an image
+    └── q4.png
+```
+
+The JSON file contains everything except the raw image data. Each question that has an image references its file by path:
+
+```json
+{
+  "settings": { "recipientEmails": ["teacher@school.edu"] },
+  "questions": [
+    {
+      "id": 1,
+      "type": "essay",
+      "prompt": "Describe the water cycle.",
+      "imageUrl": "images/q1.jpg"
+    }
+  ]
+}
+```
+
+To add a new image via import: drop the image file into the `images/` folder, add `"imageUrl": "images/your-file.jpg"` to the question in `assessment.json`, re-ZIP, and import. On import the app reads the referenced file from the ZIP and converts it back to a base64 data URL before saving to Appwrite — so the workflow is fully round-trip.
+
+### Install JSZip
+
+```bash
+npm install jszip
+```
+
+Add the import at the top of `TestEditor.tsx`:
+
+```tsx
+import JSZip from 'jszip';
+```
 
 ### Export
 
 ```tsx
-const handleExport = () => {
-    const payload: TestDataPayload = { settings: config, questions };
-    const json = JSON.stringify(payload, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
+const handleExport = async () => {
+    const zip = new JSZip();
+    const imagesFolder = zip.folder('images')!;
+
+    // Replace base64 imageUrls with file paths; write image files into the ZIP
+    const exportedQuestions = questions.map(q => {
+        if (!q.imageUrl?.startsWith('data:')) return q;
+        const [header, base64Data] = q.imageUrl.split(',');
+        const mimeType = header.split(':')[1].split(';')[0]; // e.g. "image/jpeg"
+        const ext = mimeType.split('/')[1];                   // e.g. "jpeg"
+        const filename = `q${q.id}.${ext}`;
+        imagesFolder.file(filename, base64Data, { base64: true });
+        return { ...q, imageUrl: `images/${filename}` };
+    });
+
+    zip.file('assessment.json', JSON.stringify({ settings: config, questions: exportedQuestions }, null, 2));
+    const blob = await zip.generateAsync({ type: 'blob' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `assessment-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `assessment-${new Date().toISOString().slice(0, 10)}.zip`;
     a.click();
     URL.revokeObjectURL(url);
 };
 ```
 
-This creates an in-memory file (a `Blob`), generates a temporary URL for it with `URL.createObjectURL`, programmatically clicks an `<a>` element to trigger the browser's download dialog, then immediately releases the URL with `revokeObjectURL`. The filename includes today's date in `YYYY-MM-DD` format from `toISOString().slice(0, 10)`. No server involved — the file is generated and downloaded entirely in the browser.
+For each question that has a base64 `imageUrl`, the handler splits the data URL to isolate the raw base64 string and the MIME type, writes the image bytes to `images/q{id}.{ext}` inside the ZIP, and replaces `imageUrl` in the JSON with the short path. Questions with no image pass through unchanged. `zip.generateAsync({ type: 'blob' })` builds the ZIP in memory; the rest is the same Blob/URL download pattern used throughout the app.
 
 ### Import
 
@@ -531,37 +582,65 @@ Add a ref for the hidden file input alongside the other refs:
 const importJsonRef = useRef<HTMLInputElement | null>(null);
 ```
 
-The handler reads the file, parses it, and loads it into state:
+The handler branches on file extension — ZIP files get the full image-aware path; plain JSON files fall back to the simpler reader for backward compatibility:
 
 ```tsx
-const handleImport = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
+const handleImport = async (file: File) => {
+    if (file.name.endsWith('.zip')) {
         try {
-            const parsed = JSON.parse(e.target?.result as string);
-            if (Array.isArray(parsed)) {
-                // Legacy format: bare Question[] array
-                setQuestions(parsed);
-                setConfig({});
-            } else if (parsed.questions) {
-                // Current format: full TestDataPayload
-                setQuestions(parsed.questions);
-                setConfig(parsed.settings ?? {});
-            } else {
-                throw new Error('Unrecognized format');
-            }
+            const zip = await JSZip.loadAsync(file);
+            const jsonFile = zip.file('assessment.json');
+            if (!jsonFile) throw new Error('No assessment.json found in ZIP');
+
+            const parsed = JSON.parse(await jsonFile.async('string'));
+            let loadedQuestions: Question[] = Array.isArray(parsed) ? parsed : (parsed.questions ?? []);
+            const loadedSettings = Array.isArray(parsed) ? {} : (parsed.settings ?? {});
+
+            // Resolve image paths back to base64 data URLs
+            loadedQuestions = await Promise.all(loadedQuestions.map(async (q) => {
+                if (!q.imageUrl || q.imageUrl.startsWith('data:')) return q;
+                const imageFile = zip.file(q.imageUrl);
+                if (!imageFile) return q; // referenced image missing — keep path as-is
+                const base64 = await imageFile.async('base64');
+                const ext = q.imageUrl.split('.').pop()?.toLowerCase() ?? 'jpeg';
+                const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+                return { ...q, imageUrl: `data:${mime};base64,${base64}` };
+            }));
+
+            setQuestions(loadedQuestions);
+            setConfig(loadedSettings);
             showToast('success', 'Imported successfully. Click Save to persist.');
-        } catch {
-            showToast('error', 'Invalid file — could not parse JSON.');
+        } catch (err) {
+            showToast('error', err instanceof Error ? err.message : 'Could not read ZIP file.');
         }
-    };
-    reader.readAsText(file);
+    } else {
+        // Plain JSON fallback (backward compatible)
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const parsed = JSON.parse(e.target?.result as string);
+                if (Array.isArray(parsed)) {
+                    setQuestions(parsed);
+                    setConfig({});
+                } else if (parsed.questions) {
+                    setQuestions(parsed.questions);
+                    setConfig(parsed.settings ?? {});
+                } else {
+                    throw new Error('Unrecognized format');
+                }
+                showToast('success', 'Imported successfully. Click Save to persist.');
+            } catch {
+                showToast('error', 'Invalid file — could not parse JSON.');
+            }
+        };
+        reader.readAsText(file);
+    }
 };
 ```
 
-`FileReader` is a browser API for reading file contents. `readAsText` reads the file as a UTF-8 string and fires `onload` when done. The result is available as `e.target?.result`. The import handler understands both the current `TestDataPayload` format and the older bare array format for backwards compatibility.
+`JSZip.loadAsync(file)` reads the ZIP from the `File` object the browser provides. `zip.file('assessment.json').async('string')` extracts the JSON as text. For each question whose `imageUrl` is a path (not already a data URL), the handler finds the corresponding file in the ZIP, reads it as a base64 string with `.async('base64')`, and reconstructs the full data URL. `Promise.all` handles all the async image reads in parallel before setting state.
 
-Add the trigger button and hidden input to the header button group:
+Add the trigger button and hidden input to the header button group. The `accept` attribute includes both `.zip` and `.json` so either format works:
 
 ```tsx
 <button
@@ -573,7 +652,7 @@ Add the trigger button and hidden input to the header button group:
 <input
     ref={importJsonRef}
     type="file"
-    accept=".json"
+    accept=".zip,.json"
     className="hidden"
     onChange={(e) => {
         const file = e.target.files?.[0];
