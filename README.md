@@ -8,7 +8,7 @@ This application uses a sophisticated security model that mediates all database 
 
 Features two core modes:
 1. **Student Mode**: Authenticates via an access code, loads the latest question payload, auto-grades multiple-choice/multiple-answer structures, and triggers a serverless function to email the final exam results securely.
-2. **Editor Mode**: Authenticates via a master password, providing a full rich-text drag-and-drop React UI to manage exam questions, attach and aggressively compress base64 images, and dispatch the updated payload to the database.
+2. **Editor Mode**: Authenticates via a master password, providing a full rich-text drag-and-drop React UI to manage exam questions, attach and aggressively compress base64 images, and dispatch the updated payload to the database. The editor also supports exporting the full question set as a ZIP archive (`assessment.json` plus a separate `images/` folder) for human-readable editing outside the app, and re-importing the archive — including any new images added to the folder — to sync changes back.
 
 ## Technologies Used
 
