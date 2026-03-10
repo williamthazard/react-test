@@ -27,6 +27,9 @@ jobs:
 
       - run: npm ci
       - run: npm run build
+        env:
+          VITE_APPWRITE_PROJECT_ID: ${{ secrets.VITE_APPWRITE_PROJECT_ID }}
+          VITE_SEND_RESULTS_FUNCTION_ID: ${{ secrets.VITE_SEND_RESULTS_FUNCTION_ID }}
 
       - uses: actions/upload-pages-artifact@v3
         with:
