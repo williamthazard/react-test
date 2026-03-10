@@ -135,6 +135,8 @@ export default async ({ req, res, log, error }) => {
 
 **JavaScript patterns used in this function:**
 
+**Arrow functions** — `export default async ({ req, res, log, error }) => { ... }` uses JavaScript's arrow function syntax: `(parameters) => { body }`. Arrow functions are equivalent to `function(parameters) { body }` for most purposes — the shorter syntax is just the modern convention. You'll see them everywhere in this codebase, from one-liners like `const add = (a, b) => a + b` to multi-line async functions like this one.
+
 **Destructured function parameters** — `export default async ({ req, res, log, error }) => {` receives a single context object from Appwrite and immediately destructures it into named variables. This is equivalent to `async (context) => { const { req, res, log, error } = context; ... }`. Appwrite calls your function with this exact object shape; the names `req`, `res`, `log`, and `error` are Appwrite's API contract — use these exact names.
 
 **`process.env`** — In Node.js, `process.env` is a global object containing all environment variables configured for the running process. When you set `ACCESS_CODE = TEST2026` in the Appwrite console under the function's settings, it becomes readable inside the function as `process.env.ACCESS_CODE`. This is the standard, secure way to supply secrets to server-side code — the values never appear in source files or version control.

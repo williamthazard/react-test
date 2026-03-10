@@ -2,6 +2,8 @@
 
 The frontend uses standard TypeScript models and a dedicated service layer to interact with the Appwrite backend functions.
 
+> **TypeScript in a nutshell:** The frontend is written in TypeScript, a superset of JavaScript that adds optional type annotations. When you see `string`, `number`, `boolean`, or `string[]` after a `:` in a declaration, that's TypeScript telling the compiler what kind of value is expected. When you see `type Foo = { ... }` or `interface Foo { ... }`, those are blueprints that describe the shape of an object. TypeScript checks these at build time — it will refuse to compile if you try to pass a `number` where a `string` is expected, or access a property that doesn't exist on a type. This catches an entire class of bugs before they reach users. You don't have to memorize all of TypeScript upfront — the types in this file are the foundation, and the patterns will become familiar as you see them repeated throughout the rest of the guide.
+
 ## 1. Appwrite Client Initialization
 
 Create a file `src/services/appwrite.ts`. This initializes the Appwrite SDK client and exports references to it that every other service file imports. Centralizing initialization here means there is exactly one client instance in the entire app.
@@ -181,6 +183,9 @@ type Answers = Record<number, string | string[]>;
 async function formatResults(answers: Answers, studentName: string, code: string): Promise<{ message: string; recipients: string[] }> {
     const payload = await loadQuestions(code);
     const questions = payload.questions;
+    // `?.` is optional chaining: if payload.settings is null/undefined, the whole expression
+    // returns undefined instead of throwing an error. `??` is nullish coalescing: it returns
+    // the right side only when the left side is null or undefined — here, defaulting to [].
     const recipients = payload.settings?.recipientEmails ?? [];
     const lines: string[] = [];
     let mcCorrect = 0;

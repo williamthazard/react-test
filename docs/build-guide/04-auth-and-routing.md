@@ -2,6 +2,12 @@
 
 The application uses a simple state-based router in `App.tsx`. The `AccessCodeWall` component is the gatekeeper — it verifies the code, receives the preloaded test data from the server in the same response, and hands everything up to `App.tsx`, which then decides which view to render.
 
+> **React components in a nutshell:** This part introduces the first actual React UI code. A React **component** is just a function that returns JSX — a syntax that looks like HTML but is actually JavaScript. `<div className="...">` is JSX, not HTML: class names use `className` (not `class`), event handlers are written inline as props (`onClick={...}`), and any JavaScript expression can be embedded inside `{}`. Every time something changes, React calls your function again and updates only the parts of the screen that actually changed.
+>
+> **State** is how a component remembers values between those re-renders. `const [code, setCode] = useState('')` creates a `code` variable starting as an empty string, and a `setCode` function that updates it. Calling `setCode('hello')` causes React to re-run the component and show the new value. The `[value, setter]` pair comes from array destructuring — `useState` returns a two-element array, and we name both elements in one line.
+>
+> **Props** are the inputs components receive from their parent. `function AccessCodeWall({ onUnlock }: AccessCodeWallProps)` defines a component that accepts an `onUnlock` callback as a prop. The TypeScript `interface AccessCodeWallProps { ... }` describes exactly what shape that prop must have. When `App.tsx` renders `<AccessCodeWall onUnlock={...} />`, it's calling this function and passing the prop in.
+
 ## 1. Access Code Wall (`AccessCodeWall.tsx`)
 
 Create `src/components/AccessCodeWall.tsx`. This component is responsible for:
@@ -41,6 +47,8 @@ export default function AccessCodeWall({ onUnlock }: AccessCodeWallProps) {
 - `checking` — disables the form while a network request is in flight
 
 ### Cold-Start Warm-Up
+
+`useEffect` runs a side effect after the component renders. The second argument is a dependency array — an empty `[]` means "run this once, only when the component first appears on screen." This is the right place to start background work that doesn't need to produce visible output immediately.
 
 ```tsx
     // Fire an async (background) call immediately on mount.
