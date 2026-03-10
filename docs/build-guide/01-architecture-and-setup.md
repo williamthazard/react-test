@@ -1,6 +1,81 @@
 # Part 1: Architecture and Setup
 
-This guide will walk you through building the Assessment Test application from scratch. We'll start with the high-level architecture and initial project setup.
+*A step-by-step guide to building a secure, access-code-protected assessment test with a live editor, serverless backend, and automatic email delivery.*
+
+---
+
+## What We're Building
+
+The finished application has two distinct modes, accessed by entering a code on a shared login screen:
+
+- **Student mode** — A student enters their access code and is taken directly to the test. They answer multiple-choice, multiple-answer, and essay questions, then submit. Their answers are automatically graded and emailed to the instructor.
+- **Editor mode** — A teacher enters a separate editor code and is taken to a drag-and-drop question builder. They can add, reorder, and delete questions; attach images; configure answer randomization; and manage the list of email recipients who receive submitted results. Changes are saved to a cloud database with a single click.
+
+Both modes share a polished glassmorphism UI, use a real serverless backend for security (students cannot read the correct answers by inspecting the page), and are deployed to the web automatically whenever you push a change to GitHub.
+
+Here is the technology stack — we'll explain each piece as we encounter it:
+
+| Tool | What it does |
+|---|---|
+| **Node.js / npm** | Runs JavaScript outside a browser; manages packages |
+| **Vite** | Builds and serves the project during development |
+| **React** | UI library — describes what the screen should look like |
+| **TypeScript** | A layer on top of JavaScript that adds type safety |
+| **Tailwind CSS** | Styling via utility classes written directly in JSX |
+| **Framer Motion** | Smooth, physics-based drag-and-drop for the editor |
+| **Ionicons** | A library of clean, consistent icons |
+| **Appwrite Cloud** | Serverless functions + database — our secure backend |
+| **Postal** | Self-hosted email delivery for student result reports |
+| **GitHub Actions** | Runs automated tasks (like deploying) on every push |
+| **GitHub Pages** | Free hosting for the built app from a GitHub repo |
+
+---
+
+## Tools and Prerequisites
+
+Before writing a single line of code, you need a few things installed and set up.
+
+### Node.js and npm
+
+**Node.js** lets you run JavaScript on your computer, outside of a browser. When you install it, you also get **npm** — the Node Package Manager — which is how you install open-source libraries and run build tools.
+
+Download the **LTS** (Long-Term Support) version from [nodejs.org](https://nodejs.org). After installing, open a terminal and verify:
+
+```bash
+node --version   # something like v20.x.x
+npm --version    # something like 10.x.x
+```
+
+> **What is a terminal?** A terminal (also called a command line or shell) is a text-based interface where you type commands instead of clicking. On macOS it's called Terminal and lives in your Applications folder. Most of the setup work in this guide happens here.
+
+### A Code Editor
+
+We recommend **Visual Studio Code** (VS Code), which is free and has excellent support for TypeScript and React. Download it from [code.visualstudio.com](https://code.visualstudio.com).
+
+### Git and a GitHub Account
+
+To deploy the app and version-control your work, you need `git` installed and a free account at [github.com](https://github.com). If you've ever run `git` in a terminal, you have it. If not, download it from [git-scm.com](https://git-scm.com). Create a new empty repository on GitHub — you'll push your project there once it's working.
+
+### An Appwrite Account
+
+Appwrite Cloud is the backend that powers the app — it hosts the database and runs the serverless functions. Create a free account at [cloud.appwrite.io](https://cloud.appwrite.io) and create a new project. You'll need your **Project ID** from the project settings; keep it handy.
+
+### The Appwrite CLI
+
+The Appwrite CLI is used to deploy the serverless functions. Install it globally:
+
+```bash
+npm install -g appwrite-cli
+appwrite login
+```
+
+`appwrite login` will open a browser window to authenticate. Once logged in, you can deploy functions from the command line.
+
+### An Email Delivery Service
+
+The app sends student results by email via a backend function. This guide uses [Postal](https://postalserver.io), a self-hosted mail server, and assumes you have a Postal instance and API key available. If you don't, any transactional email API (SendGrid, Resend, Postmark) will work with minor changes to the `send-test-results` function — the pattern is the same.
+
+---
 
 ## 1. System Architecture
 
