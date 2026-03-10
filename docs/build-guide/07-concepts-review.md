@@ -189,9 +189,7 @@ The app you've built is a working foundation, not a ceiling. A few directions wo
 
 - **Per-user authentication**: Replace the single shared access code with individual student accounts. Appwrite has a full authentication system (email/password, magic links, OAuth) that could give each student a unique login and let you track submissions by user.
 - **Results dashboard**: Store each submission as an Appwrite document instead of (or in addition to) emailing it. Build an editor-facing results view that queries those documents and displays submission history, scores, and response breakdowns.
-- **Preview mode**: Add a toggle in `TestEditor` that renders the `TestPage` component inline — letting the editor see exactly what students see without logging out and back in with a different code.
 - **Managed email delivery**: Postal works well self-hosted, but services like Resend, SendGrid, or Postmark offer higher deliverability, bounce handling, and dashboards with zero infrastructure to maintain. Swapping one out means changing only the `send-test-results` function.
-- **Import/export**: Add a button in the editor that serializes the current `TestDataPayload` to a downloadable JSON file, and an upload button that parses and loads one. This gives you question backup and the ability to move question sets between app instances.
 
 ---
 

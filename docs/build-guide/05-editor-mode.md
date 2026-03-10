@@ -415,6 +415,189 @@ const handleSave = async () => {
 };
 ```
 
+## Preview Mode
+
+The editor includes a full-screen preview that lets the teacher see exactly what students will see — including any randomization settings — without logging out and back in with a different access code.
+
+### Changes to `TestPage.tsx`
+
+Add `isPreview` as an optional prop to the component signature:
+
+```tsx
+export default function TestPage({ code, initialPayload, isPreview }: {
+    code: string;
+    initialPayload?: TestDataPayload | null;
+    isPreview?: boolean
+}) {
+```
+
+In the submit area, conditionally disable the button and replace the "Ready to submit?" label:
+
+```tsx
+<p className="text-pit-grey font-semibold">
+    {isPreview ? 'Preview mode — submission disabled' : 'Ready to submit?'}
+</p>
+// ...
+<button
+    onClick={handleSubmit}
+    disabled={submitState === 'sending' || !!isPreview}
+    // ... rest of className unchanged
+>
+```
+
+The `!!isPreview` double-negation converts the optional boolean (`true | undefined`) to a strict boolean (`true | false`). A disabled button already receives the `disabled:` Tailwind variants you defined, so no className changes are needed.
+
+### Changes to `TestEditor.tsx`
+
+Add the import at the top of the file:
+
+```tsx
+import TestPage from './TestPage';
+```
+
+Add a state variable:
+
+```tsx
+const [showPreview, setShowPreview] = useState(false);
+```
+
+Add a **Preview** button to the header button group, alongside Reset and Save:
+
+```tsx
+<button
+    onClick={() => setShowPreview(true)}
+    className="px-3 py-1.5 text-xs font-semibold text-white/70 hover:text-white border border-white/20 hover:border-white/40 rounded-lg transition-all"
+>
+    Preview
+</button>
+```
+
+At the end of the component's root `<div>` (just before the final closing tag), add the overlay:
+
+```tsx
+{/* Preview overlay */}
+{showPreview && (
+    <div className="fixed inset-0 z-[150] overflow-y-auto bg-white">
+        {/* Sticky banner — always visible as the teacher scrolls the preview */}
+        <div className="sticky top-0 z-[200] bg-pit-yellow text-pit-blue flex items-center justify-center gap-4 py-2.5 px-4 text-sm font-bold shadow-md">
+            <span>Preview — this is what students will see</span>
+            <button
+                onClick={() => setShowPreview(false)}
+                className="px-3 py-1 rounded-lg bg-pit-blue text-white text-xs font-bold hover:bg-[#253d6e] transition-colors"
+            >
+                Exit Preview
+            </button>
+        </div>
+        <TestPage
+            code={code}
+            initialPayload={{ settings: config, questions }}
+            isPreview={true}
+        />
+    </div>
+)}
+```
+
+The overlay uses `fixed inset-0` to cover the entire viewport and `overflow-y-auto` to allow scrolling through a long test. `z-[150]` places it above the editor's own modals (which use `z-[90]`) but below the preview's own sticky banner (`z-[200]`). Passing `initialPayload={{ settings: config, questions }}` feeds the current unsaved editor state directly to `TestPage`, so the preview always reflects the latest changes even before saving.
+
+---
+
+## Import and Export
+
+Import and export let a teacher back up their question set as a JSON file and restore it later — or move questions between different app instances.
+
+### Export
+
+```tsx
+const handleExport = () => {
+    const payload: TestDataPayload = { settings: config, questions };
+    const json = JSON.stringify(payload, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `assessment-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+};
+```
+
+This creates an in-memory file (a `Blob`), generates a temporary URL for it with `URL.createObjectURL`, programmatically clicks an `<a>` element to trigger the browser's download dialog, then immediately releases the URL with `revokeObjectURL`. The filename includes today's date in `YYYY-MM-DD` format from `toISOString().slice(0, 10)`. No server involved — the file is generated and downloaded entirely in the browser.
+
+### Import
+
+Add a ref for the hidden file input alongside the other refs:
+
+```tsx
+const importJsonRef = useRef<HTMLInputElement | null>(null);
+```
+
+The handler reads the file, parses it, and loads it into state:
+
+```tsx
+const handleImport = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const parsed = JSON.parse(e.target?.result as string);
+            if (Array.isArray(parsed)) {
+                // Legacy format: bare Question[] array
+                setQuestions(parsed);
+                setConfig({});
+            } else if (parsed.questions) {
+                // Current format: full TestDataPayload
+                setQuestions(parsed.questions);
+                setConfig(parsed.settings ?? {});
+            } else {
+                throw new Error('Unrecognized format');
+            }
+            showToast('success', 'Imported successfully. Click Save to persist.');
+        } catch {
+            showToast('error', 'Invalid file — could not parse JSON.');
+        }
+    };
+    reader.readAsText(file);
+};
+```
+
+`FileReader` is a browser API for reading file contents. `readAsText` reads the file as a UTF-8 string and fires `onload` when done. The result is available as `e.target?.result`. The import handler understands both the current `TestDataPayload` format and the older bare array format for backwards compatibility.
+
+Add the trigger button and hidden input to the header button group:
+
+```tsx
+<button
+    onClick={() => importJsonRef.current?.click()}
+    className="px-3 py-1.5 text-xs font-semibold text-white/70 hover:text-white border border-white/20 hover:border-white/40 rounded-lg transition-all"
+>
+    Import
+</button>
+<input
+    ref={importJsonRef}
+    type="file"
+    accept=".json"
+    className="hidden"
+    onChange={(e) => {
+        const file = e.target.files?.[0];
+        if (file) handleImport(file);
+        e.target.value = ''; // reset so the same file can be re-imported
+    }}
+/>
+```
+
+And an **Export** button:
+
+```tsx
+<button
+    onClick={handleExport}
+    className="px-3 py-1.5 text-xs font-semibold text-white/70 hover:text-white border border-white/20 hover:border-white/40 rounded-lg transition-all"
+>
+    Export
+</button>
+```
+
+Importing loads questions into local state immediately but does not save to the server. The teacher must click Save to persist the imported questions — consistent with how every other edit in the editor works.
+
+---
+
 ## Early Returns
 
 Before the main render, we handle loading and error states with early returns — the same pattern used in TestPage:

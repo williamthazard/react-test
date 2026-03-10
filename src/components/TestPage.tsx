@@ -6,7 +6,7 @@ type Answers = Record<number, string | string[]>;
 
 type SubmitState = 'idle' | 'sending' | 'success' | 'error';
 
-export default function TestPage({ code, initialPayload }: { code: string; initialPayload?: TestDataPayload | null }) {
+export default function TestPage({ code, initialPayload, isPreview }: { code: string; initialPayload?: TestDataPayload | null; isPreview?: boolean }) {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [answers, setAnswers] = useState<Answers>({});
@@ -362,7 +362,7 @@ export default function TestPage({ code, initialPayload }: { code: string; initi
                     <div className="p-6 rounded-2xl border border-white/40 bg-white/40 backdrop-blur-xl shadow-sm">
                         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                             <div>
-                                <p className="text-pit-grey font-semibold">Ready to submit?</p>
+                                <p className="text-pit-grey font-semibold">{isPreview ? 'Preview mode — submission disabled' : 'Ready to submit?'}</p>
                                 <p className="text-pit-grey-light text-sm mt-0.5">
                                     {answeredCount === questions.length
                                         ? 'All questions answered!'
@@ -372,7 +372,7 @@ export default function TestPage({ code, initialPayload }: { code: string; initi
                             <div className="flex flex-col items-end gap-2">
                                 <button
                                     onClick={handleSubmit}
-                                    disabled={submitState === 'sending'}
+                                    disabled={submitState === 'sending' || !!isPreview}
                                     className={`px-8 py-3 rounded-xl font-semibold tracking-wide shadow-md transition-all duration-200 cursor-pointer whitespace-nowrap ${submitState === 'sending'
                                         ? 'bg-gray-400 text-white cursor-not-allowed'
                                         : 'bg-pit-blue text-white hover:bg-pit-blue-dark hover:shadow-lg hover:scale-[1.02] active:scale-[0.98]'

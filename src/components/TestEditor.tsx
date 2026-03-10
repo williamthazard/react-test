@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import TestPage from './TestPage';
 import {
     type Question,
     type MultipleChoiceQuestion,
@@ -40,7 +41,9 @@ export default function TestEditor({ code, initialPayload }: { code: string; ini
     const [loadError, setLoadError] = useState(false);
     const [draggingOver, setDraggingOver] = useState<number | null>(null);
     const [uploadingImage, setUploadingImage] = useState<number | null>(null);
+    const [showPreview, setShowPreview] = useState(false);
     const fileInputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+    const importJsonRef = useRef<HTMLInputElement | null>(null);
 
     // Track stable IDs for options to enable both editing and reordering
     // Map: questionId -> array of option IDs (same length as options array)
@@ -311,6 +314,40 @@ export default function TestEditor({ code, initialPayload }: { code: string; ini
         showToast('success', 'Reset to default questions. Click Save to persist.');
     };
 
+    const handleExport = () => {
+        const payload: TestDataPayload = { settings: config, questions };
+        const json = JSON.stringify(payload, null, 2);
+        const blob = new Blob([json], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `assessment-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const handleImport = (file: File) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const parsed = JSON.parse(e.target?.result as string);
+                if (Array.isArray(parsed)) {
+                    setQuestions(parsed);
+                    setConfig({});
+                } else if (parsed.questions) {
+                    setQuestions(parsed.questions);
+                    setConfig(parsed.settings ?? {});
+                } else {
+                    throw new Error('Unrecognized format');
+                }
+                showToast('success', 'Imported successfully. Click Save to persist.');
+            } catch {
+                showToast('error', 'Invalid file — could not parse JSON.');
+            }
+        };
+        reader.readAsText(file);
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#e8edf5] via-[#dde4f0] to-[#d0d9eb]">
@@ -364,6 +401,35 @@ export default function TestEditor({ code, initialPayload }: { code: string; ini
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setShowPreview(true)}
+                            className="px-3 py-1.5 text-xs font-semibold text-white/70 hover:text-white border border-white/20 hover:border-white/40 rounded-lg transition-all"
+                        >
+                            Preview
+                        </button>
+                        <button
+                            onClick={handleExport}
+                            className="px-3 py-1.5 text-xs font-semibold text-white/70 hover:text-white border border-white/20 hover:border-white/40 rounded-lg transition-all"
+                        >
+                            Export
+                        </button>
+                        <button
+                            onClick={() => importJsonRef.current?.click()}
+                            className="px-3 py-1.5 text-xs font-semibold text-white/70 hover:text-white border border-white/20 hover:border-white/40 rounded-lg transition-all"
+                        >
+                            Import
+                        </button>
+                        <input
+                            ref={importJsonRef}
+                            type="file"
+                            accept=".json"
+                            className="hidden"
+                            onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleImport(file);
+                                e.target.value = '';
+                            }}
+                        />
                         <button
                             onClick={() => setConfirmReset(true)}
                             className="px-3 py-1.5 text-xs font-semibold text-white/70 hover:text-white border border-white/20 hover:border-white/40 rounded-lg transition-all"
@@ -739,6 +805,26 @@ export default function TestEditor({ code, initialPayload }: { code: string; ini
                     </div>
                 </div>
             </main>
+
+            {/* Preview overlay */}
+            {showPreview && (
+                <div className="fixed inset-0 z-[150] overflow-y-auto bg-white">
+                    <div className="sticky top-0 z-[200] bg-pit-yellow text-pit-blue flex items-center justify-center gap-4 py-2.5 px-4 text-sm font-bold shadow-md">
+                        <span>Preview — this is what students will see</span>
+                        <button
+                            onClick={() => setShowPreview(false)}
+                            className="px-3 py-1 rounded-lg bg-pit-blue text-white text-xs font-bold hover:bg-[#253d6e] transition-colors"
+                        >
+                            Exit Preview
+                        </button>
+                    </div>
+                    <TestPage
+                        code={code}
+                        initialPayload={{ settings: config, questions }}
+                        isPreview={true}
+                    />
+                </div>
+            )}
         </div>
     );
 }
