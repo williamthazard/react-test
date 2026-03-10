@@ -124,7 +124,10 @@ export default async ({ req, res, log, error }) => {
 
             return res.json({ ok: true, valid: true, role, questions });
         }
-        log('Invalid code');
+        log('Invalid code — applying anti-brute-force delay');
+        // Slow down invalid responses to make brute-force attempts impractical.
+        // This has no effect on correct codes, which return before reaching this line.
+        await new Promise(r => setTimeout(r, 2000));
         return res.json({ ok: true, valid: false });
     } catch (err) {
         error(`${err.message}\n${err.stack}`);

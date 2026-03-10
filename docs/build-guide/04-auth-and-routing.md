@@ -68,6 +68,8 @@ export default function AccessCodeWall({ onUnlock }: AccessCodeWallProps) {
 
 This `useEffect` runs once on mount. The `true` flag (the third argument to `createExecution`) tells Appwrite to run the execution asynchronously — we don't wait for a response. The empty `.catch` silences any network errors since this call is purely a performance hint.
 
+Note that `WARM_UP` is not a valid access code, so the function will hit the 2-second anti-brute-force delay before responding. This is fine — because the call is async, the user never waits for it. The container is still warmed by the time the delay fires.
+
 ### Submit Handler with Retry Logic
 
 ```tsx

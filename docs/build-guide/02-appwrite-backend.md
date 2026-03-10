@@ -124,7 +124,12 @@ export default async ({ req, res, log, error }) => {
 
             return res.json({ ok: true, valid: true, role, questions: loadedQuestions });
         }
-        
+
+        // Slow down invalid-code responses to make brute-force attacks impractical.
+        // A 2-second artificial delay means an attacker can only try ~30 codes per minute
+        // regardless of network speed. Correct codes return before reaching this line,
+        // so legitimate users are never affected.
+        await new Promise(r => setTimeout(r, 2000));
         return res.json({ ok: true, valid: false });
     } catch (err) {
         error(`${err.message}\n${err.stack}`);
