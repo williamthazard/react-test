@@ -1,4 +1,4 @@
-# Assessment Test Platform
+# Assessment Platform
 
 A secure, serverless React application for administering exams and aggregating results. Built with React, TypeScript, and Vite, and backed by Appwrite Cloud.
 
