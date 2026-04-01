@@ -1,3 +1,865 @@
 {
-    "projectId": "699de9370020d5f42bdf"
+    "projectId": "6866aa970031dffbf81b",
+    "projectName": "ansible",
+    "functions": [
+        {
+            "$id": "687e3da00039b4291b32",
+            "name": "parse-rss-feed",
+            "runtime": "node-18.0",
+            "path": "functions/parse-rss-feed",
+            "entrypoint": "dist/main.js",
+            "ignore": [
+                "node_modules",
+                ".gitignore",
+                "package-lock.json",
+                ".npm"
+            ],
+            "execute": [
+                "any"
+            ],
+            "events": [],
+            "enabled": true,
+            "logging": true,
+            "schedule": "",
+            "timeout": 15,
+            "commands": "npm install && npm run build"
+        },
+        {
+            "$id": "batch-parse-feeds",
+            "name": "batch-parse-feeds",
+            "runtime": "node-18.0",
+            "specification": "s-2vcpu-2gb",
+            "path": "functions/batch-parse-feeds",
+            "entrypoint": "dist/main.js",
+            "ignore": [
+                "node_modules",
+                ".gitignore",
+                "package-lock.json",
+                ".npm"
+            ],
+            "execute": [
+                "any"
+            ],
+            "events": [],
+            "enabled": true,
+            "logging": true,
+            "schedule": "",
+            "timeout": 120,
+            "commands": "npm install && npm run build"
+        },
+        {
+            "$id": "extract-podcast-artwork",
+            "name": "extract-podcast-artwork",
+            "runtime": "node-16.0",
+            "specification": "s-0.5vcpu-512mb",
+            "execute": [
+                "any"
+            ],
+            "events": [],
+            "scopes": [
+                "users.read"
+            ],
+            "schedule": "",
+            "timeout": 15,
+            "enabled": true,
+            "logging": true,
+            "entrypoint": "src/main.js",
+            "commands": "npm install",
+            "path": "functions/extract-podcast-artwork"
+        },
+        {
+            "$id": "send-dm",
+            "name": "send-dm",
+            "runtime": "node-18.0",
+            "path": "functions/send-dm",
+            "entrypoint": "src/main.js",
+            "ignore": [
+                "node_modules",
+                ".gitignore",
+                "package-lock.json",
+                ".npm"
+            ],
+            "execute": [
+                "users"
+            ],
+            "events": [],
+            "scopes": [],
+            "specification": "s-0.5vcpu-512mb",
+            "enabled": true,
+            "logging": true,
+            "schedule": "",
+            "timeout": 15,
+            "commands": "npm install"
+        },
+        {
+            "$id": "inbound-dm",
+            "name": "inbound-dm",
+            "runtime": "node-18.0",
+            "path": "functions/inbound-dm",
+            "entrypoint": "src/main.js",
+            "ignore": [
+                "node_modules",
+                ".gitignore",
+                "package-lock.json",
+                ".npm"
+            ],
+            "execute": [
+                "any"
+            ],
+            "events": [],
+            "scopes": [],
+            "specification": "s-0.5vcpu-512mb",
+            "enabled": true,
+            "logging": true,
+            "schedule": "",
+            "timeout": 15,
+            "commands": "npm install"
+        },
+        {
+            "$id": "verify-access-code",
+            "name": "verify-access-code",
+            "runtime": "node-18.0",
+            "specification": "s-1vcpu-1gb",
+            "path": "functions/verify-access-code",
+            "entrypoint": "src/main.js",
+            "ignore": [
+                "node_modules",
+                ".gitignore",
+                "package-lock.json",
+                ".npm"
+            ],
+            "execute": [
+                "any"
+            ],
+            "events": [],
+            "scopes": [
+                "databases.read",
+                "databases.write"
+            ],
+            "enabled": true,
+            "logging": true,
+            "schedule": "",
+            "timeout": 120,
+            "commands": "npm install"
+        },
+        {
+            "$id": "send-test-results",
+            "name": "send-test-results",
+            "runtime": "node-18.0",
+            "specification": "s-0.5vcpu-512mb",
+            "path": "functions/send-test-results",
+            "entrypoint": "src/main.js",
+            "ignore": [
+                "node_modules",
+                ".gitignore",
+                "package-lock.json",
+                ".npm"
+            ],
+            "execute": [
+                "any"
+            ],
+            "events": [],
+            "scopes": [],
+            "enabled": true,
+            "logging": true,
+            "schedule": "",
+            "timeout": 30,
+            "commands": "npm install"
+        }
+    ],
+    "databases": [
+        {
+            "$id": "6872c4370036255a902b",
+            "name": "expo-rss-db",
+            "enabled": true
+        },
+        {
+            "$id": "test-app-db",
+            "name": "Assessment Test DB",
+            "enabled": true
+        }
+    ],
+    "collections": [
+        {
+            "$id": "6872c45c002a96b166c7",
+            "$permissions": [
+                "create(\"users\")"
+            ],
+            "databaseId": "6872c4370036255a902b",
+            "name": "books",
+            "enabled": true,
+            "documentSecurity": true,
+            "attributes": [
+                {
+                    "key": "userId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 255,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "url",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 256,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "customTitle",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 256,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "error",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 512,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "isPodcast",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": false
+                },
+                {
+                    "key": "title",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 512,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "description",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 10000,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "artworkUrl",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 2000,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "ownerEmail",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 255,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "manuallyOverridePodcast",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": false
+                }
+            ],
+            "indexes": []
+        },
+        {
+            "$id": "article_states",
+            "$permissions": [
+                "create(\"users\")"
+            ],
+            "databaseId": "6872c4370036255a902b",
+            "name": "Article States",
+            "enabled": true,
+            "documentSecurity": true,
+            "attributes": [
+                {
+                    "key": "userId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 255,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "articleId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 512,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "isRead",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": false
+                },
+                {
+                    "key": "markedAt",
+                    "type": "datetime",
+                    "required": false,
+                    "array": false,
+                    "format": "",
+                    "default": null
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "unique_user_article",
+                    "type": "unique",
+                    "status": "available",
+                    "attributes": [
+                        "userId",
+                        "articleId"
+                    ],
+                    "orders": []
+                },
+                {
+                    "key": "user_lookup",
+                    "type": "key",
+                    "status": "available",
+                    "attributes": [
+                        "userId"
+                    ],
+                    "orders": []
+                }
+            ]
+        },
+        {
+            "$id": "user_preferences",
+            "$permissions": [
+                "create(\"users\")"
+            ],
+            "databaseId": "6872c4370036255a902b",
+            "name": "User Preferences",
+            "enabled": true,
+            "documentSecurity": true,
+            "attributes": [
+                {
+                    "key": "userId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 255,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "showUnreadOnly",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": false
+                },
+                {
+                    "key": "showUnreadOnlyFeeds",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": false
+                },
+                {
+                    "key": "updatedAt",
+                    "type": "datetime",
+                    "required": false,
+                    "array": false,
+                    "format": "",
+                    "default": null
+                },
+                {
+                    "key": "enabledSmartFeeds",
+                    "type": "string",
+                    "required": false,
+                    "array": true,
+                    "size": 1024,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "playbackSpeed",
+                    "type": "double",
+                    "required": false,
+                    "array": false,
+                    "min": 0,
+                    "max": 2,
+                    "default": null
+                },
+                {
+                    "key": "skipInterval",
+                    "type": "integer",
+                    "required": false,
+                    "array": false,
+                    "min": 5,
+                    "max": 90,
+                    "default": null
+                },
+                {
+                    "key": "feedsCollapsed",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": false
+                },
+                {
+                    "key": "podcastsCollapsed",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": false
+                },
+                {
+                    "key": "skipForwardInterval",
+                    "type": "integer",
+                    "required": false,
+                    "array": false,
+                    "min": 0,
+                    "max": 300,
+                    "default": 30
+                },
+                {
+                    "key": "skipBackwardInterval",
+                    "type": "integer",
+                    "required": false,
+                    "array": false,
+                    "min": 0,
+                    "max": 300,
+                    "default": 15
+                },
+                {
+                    "key": "trimSilence",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": false
+                },
+                {
+                    "key": "volumeBoost",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": false
+                },
+                {
+                    "key": "theme",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 32,
+                    "default": "system",
+                    "encrypt": false
+                },
+                {
+                    "key": "feedsSortBy",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 32,
+                    "default": "alphabetical",
+                    "encrypt": false
+                },
+                {
+                    "key": "podcastsSortBy",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 32,
+                    "default": "alphabetical",
+                    "encrypt": false
+                },
+                {
+                    "key": "feedsShowUnreadOnly",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": false
+                },
+                {
+                    "key": "podcastsShowUnreadOnly",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": false
+                },
+                {
+                    "key": "articlesSortPrefs",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 10000,
+                    "default": "{}",
+                    "encrypt": false
+                },
+                {
+                    "key": "feedsSectionCollapsed",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": false
+                },
+                {
+                    "key": "podcastsSectionCollapsed",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": false
+                },
+                {
+                    "key": "smartFeedsSectionCollapsed",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": false
+                },
+                {
+                    "key": "customEmailAlias",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 255,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "chatPreviewsEnabled",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": true
+                },
+                {
+                    "key": "chatNotificationsEnabled",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": false
+                },
+                {
+                    "key": "chatNotificationShowSender",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": true
+                },
+                {
+                    "key": "chatNotificationShowPreview",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": false
+                },
+                {
+                    "key": "blockedEmails",
+                    "type": "string",
+                    "required": false,
+                    "array": true,
+                    "size": 255,
+                    "default": null,
+                    "encrypt": false
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "unique_user",
+                    "type": "unique",
+                    "status": "available",
+                    "attributes": [
+                        "userId"
+                    ],
+                    "orders": []
+                }
+            ]
+        },
+        {
+            "$id": "proxy_addresses",
+            "$permissions": [
+                "create(\"users\")"
+            ],
+            "databaseId": "6872c4370036255a902b",
+            "name": "Proxy Addresses",
+            "enabled": true,
+            "documentSecurity": true,
+            "attributes": [
+                {
+                    "key": "userId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 255,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "proxyEmail",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 255,
+                    "default": null,
+                    "encrypt": false
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "unique_user",
+                    "type": "unique",
+                    "status": "available",
+                    "attributes": [
+                        "userId"
+                    ],
+                    "orders": []
+                },
+                {
+                    "key": "unique_proxy",
+                    "type": "unique",
+                    "status": "available",
+                    "attributes": [
+                        "proxyEmail"
+                    ],
+                    "orders": []
+                }
+            ]
+        },
+        {
+            "$id": "conversations",
+            "$permissions": [
+                "read(\"users\")",
+                "create(\"users\")",
+                "update(\"users\")",
+                "delete(\"users\")"
+            ],
+            "databaseId": "6872c4370036255a902b",
+            "name": "Conversations",
+            "enabled": true,
+            "documentSecurity": true,
+            "attributes": [
+                {
+                    "key": "userId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 255,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "feedEmail",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 255,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "feedTitle",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 255,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "proxyEmail",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 255,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "updatedAt",
+                    "type": "datetime",
+                    "required": false,
+                    "array": false,
+                    "format": "",
+                    "default": null
+                },
+                {
+                    "key": "imageUrl",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 2000,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "unread",
+                    "type": "boolean",
+                    "required": false,
+                    "array": false,
+                    "default": false
+                },
+                {
+                    "key": "lastMessageBody",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 255,
+                    "default": null,
+                    "encrypt": false
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "user_feed",
+                    "type": "unique",
+                    "status": "available",
+                    "attributes": [
+                        "userId",
+                        "feedEmail"
+                    ],
+                    "orders": []
+                }
+            ]
+        },
+        {
+            "$id": "messages",
+            "$permissions": [
+                "read(\"users\")",
+                "create(\"users\")",
+                "create(\"any\")",
+                "update(\"users\")",
+                "delete(\"users\")"
+            ],
+            "databaseId": "6872c4370036255a902b",
+            "name": "Messages",
+            "enabled": true,
+            "documentSecurity": true,
+            "attributes": [
+                {
+                    "key": "conversationId",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 255,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "senderType",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 50,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "senderEmail",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 255,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "body",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 5000,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "externalId",
+                    "type": "string",
+                    "required": false,
+                    "array": false,
+                    "size": 255,
+                    "default": null,
+                    "encrypt": false
+                },
+                {
+                    "key": "attachments",
+                    "type": "string",
+                    "required": false,
+                    "array": true,
+                    "size": 255,
+                    "default": null,
+                    "encrypt": false
+                }
+            ],
+            "indexes": [
+                {
+                    "key": "conv_lookup",
+                    "type": "key",
+                    "status": "available",
+                    "attributes": [
+                        "conversationId"
+                    ],
+                    "orders": []
+                }
+            ]
+        },
+        {
+            "$id": "questions",
+            "$permissions": [],
+            "databaseId": "test-app-db",
+            "name": "questions",
+            "enabled": true,
+            "documentSecurity": false,
+            "attributes": [
+                {
+                    "key": "data",
+                    "type": "string",
+                    "required": true,
+                    "array": false,
+                    "size": 16777216,
+                    "default": null,
+                    "encrypt": false
+                }
+            ],
+            "indexes": []
+        }
+    ],
+    "buckets": [
+        {
+            "$id": "chat-images",
+            "name": "Chat Images",
+            "enabled": true,
+            "maximumFileSize": 10485760,
+            "allowedFileExtensions": [
+                "jpg",
+                "jpeg",
+                "png",
+                "gif",
+                "webp",
+                "heic"
+            ],
+            "compression": "none",
+            "encryption": true,
+            "antivirus": true,
+            "$permissions": [
+                "create(\"users\")",
+                "read(\"users\")",
+                "update(\"users\")",
+                "delete(\"users\")"
+            ]
+        }
+    ]
 }
